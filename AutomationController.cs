@@ -18,7 +18,7 @@ namespace TelegramAutomation
     public class AutomationController : IDisposable
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
-        private readonly IInputSimulator _inputSimulator;
+        private readonly InputSimulator _inputSimulator;
         private IWebDriver _driver;
         private bool _isRunning;
         private HashSet<string> _processedMessageIds;
