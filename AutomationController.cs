@@ -10,14 +10,14 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using WindowsInput = InputSimulator;
+using WindowsInput;
 
 namespace TelegramAutomation
 {
     public class AutomationController : IDisposable
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
-        private readonly WindowsInput _inputSimulator;
+        private readonly InputSimulator _inputSimulator;
         private IWebDriver _driver;
         private bool _isRunning;
         private HashSet<string> _processedMessageIds;
@@ -27,7 +27,7 @@ namespace TelegramAutomation
 
         public AutomationController()
         {
-            _inputSimulator = new WindowsInput();
+            _inputSimulator = new InputSimulator();
             _processedMessageIds = new HashSet<string>();
         }
 
@@ -329,22 +329,29 @@ namespace TelegramAutomation
 
         private void SimulateKeyPress(string text)
         {
-            _inputSimulator.Keyboard.TextEntry(text);
+            foreach (char c in text)
+            {
+                _inputSimulator.Keyboard.TextEntry(c);
+            }
         }
 
         private void SimulateEnterKey()
         {
-            _inputSimulator.Keyboard.KeyPress(VirtualKeyCode.RETURN);
+            _inputSimulator.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.RETURN);
         }
 
         private void SimulateControlC()
         {
-            _inputSimulator.Keyboard.ModifiedKeyStroke(VirtualKeyCode.CONTROL, VirtualKeyCode.VK_C);
+            _inputSimulator.Keyboard.ModifiedKeyStroke(
+                WindowsInput.Native.VirtualKeyCode.CONTROL, 
+                WindowsInput.Native.VirtualKeyCode.VK_C);
         }
 
         private void SimulateControlV()
         {
-            _inputSimulator.Keyboard.ModifiedKeyStroke(VirtualKeyCode.CONTROL, VirtualKeyCode.VK_V);
+            _inputSimulator.Keyboard.ModifiedKeyStroke(
+                WindowsInput.Native.VirtualKeyCode.CONTROL, 
+                WindowsInput.Native.VirtualKeyCode.VK_V);
         }
     }
 }
