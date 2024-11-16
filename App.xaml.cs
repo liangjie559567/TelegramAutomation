@@ -1,4 +1,3 @@
-using System;
 using System.Windows;
 
 namespace TelegramAutomation
@@ -9,7 +8,12 @@ namespace TelegramAutomation
         {
             base.OnStartup(e);
             
-            // 在这里可以添加任何需要在应用程序启动时执行的代码
+            // 初始化日志配置
+            NLog.LogManager.LoadConfiguration("nlog.config");
+            
+            // 创建并显示主窗口
+            MainWindow mainWindow = new MainWindow();
+            mainWindow.Show();
         }
     }
 }
