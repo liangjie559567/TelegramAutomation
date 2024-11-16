@@ -1,8 +1,6 @@
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
-using WindowsInput;
-using WindowsInput.Native;
 using NLog;
 using System;
 using System.IO;
@@ -12,13 +10,14 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using WindowsInput = InputSimulator;
 
 namespace TelegramAutomation
 {
     public class AutomationController : IDisposable
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
-        private readonly IInputSimulator _inputSimulator;
+        private readonly WindowsInput _inputSimulator;
         private IWebDriver _driver;
         private bool _isRunning;
         private HashSet<string> _processedMessageIds;
@@ -28,7 +27,7 @@ namespace TelegramAutomation
 
         public AutomationController()
         {
-            _inputSimulator = new InputSimulator();
+            _inputSimulator = new WindowsInput();
             _processedMessageIds = new HashSet<string>();
         }
 
