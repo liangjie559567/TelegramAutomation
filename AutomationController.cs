@@ -57,18 +57,30 @@ namespace TelegramAutomation
 
         private void InitializeWebDriver()
         {
-            var options = new ChromeOptions();
-            options.AddArgument("--start-maximized");
-            options.AddArgument("--disable-notifications");
-            
-            // 添加下载设置
-            var downloadPath = Path.Combine(Path.GetTempPath(), "TelegramDownloads");
-            Directory.CreateDirectory(downloadPath);
-            
-            options.AddUserProfilePreference("download.default_directory", downloadPath);
-            options.AddUserProfilePreference("download.prompt_for_download", false);
-            
-            _driver = new ChromeDriver(options);
+            try
+            {
+                var options = new ChromeOptions();
+                options.AddArgument("--start-maximized");
+                options.AddArgument("--disable-notifications");
+                
+                // 添加下载设置
+                var downloadPath = Path.Combine(Path.GetTempPath(), "TelegramDownloads");
+                Directory.CreateDirectory(downloadPath);
+                
+                options.AddUserProfilePreference("download.default_directory", downloadPath);
+                options.AddUserProfilePreference("download.prompt_for_download", false);
+
+                // 设置 ChromeDriver 路径
+                var driverService = ChromeDriverService.CreateDefaultService();
+                driverService.HideCommandPromptWindow = true;  // 隐藏命令行窗口
+
+                _driver = new ChromeDriver(driverService, options);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "初始化 WebDriver 失败");
+                throw new Exception("初始化浏览器失败，请确保已安装 Chrome 浏览器", ex);
+            }
         }
 
         private async Task NavigateToChannel(string channelUrl, IProgress<string> progress, 
@@ -206,7 +218,7 @@ namespace TelegramAutomation
                     }
                     else
                     {
-                        // 保存其他链接���文本文件
+                        // 保存其他链接文本文件
                         await File.AppendAllTextAsync(
                             Path.Combine(messageFolder, "links.txt"),
                             $"{href}\n",
