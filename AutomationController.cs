@@ -58,27 +58,33 @@ namespace TelegramAutomation
 
         private IWebDriver InitializeWebDriver()
         {
-            var chromeOptions = new ChromeOptions();
-            
-            // 添加一些有用的选项
-            chromeOptions.AddArgument("--disable-gpu");
-            chromeOptions.AddArgument("--no-sandbox");
-            chromeOptions.AddArgument("--disable-dev-shm-usage");
-            
             try
             {
-                // 获取 Chrome Driver 的路径
-                var driverPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var chromeOptions = new ChromeOptions();
+                chromeOptions.AddArgument("--disable-gpu");
+                chromeOptions.AddArgument("--no-sandbox");
+                chromeOptions.AddArgument("--disable-dev-shm-usage");
                 
-                // 创建 ChromeDriverService
-                var service = ChromeDriverService.CreateDefaultService(driverPath);
-                service.HideCommandPromptWindow = true; // 隐藏命令行窗口
+                // 获取当前程序运行目录
+                var currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                var chromeDriverPath = Path.Combine(currentDirectory, "chromedriver.exe");
                 
-                // 返回新的 ChromeDriver 实例
+                _logger.Info($"Chrome Driver 路径: {chromeDriverPath}");
+                
+                if (!File.Exists(chromeDriverPath))
+                {
+                    throw new Exception($"Chrome Driver 文件不存在: {chromeDriverPath}");
+                }
+                
+                var service = ChromeDriverService.CreateDefaultService(currentDirectory);
+                service.HideCommandPromptWindow = true;
+                
+                _logger.Info("正在初始化 Chrome Driver...");
                 return new ChromeDriver(service, chromeOptions);
             }
             catch (Exception ex)
             {
+                _logger.Error(ex, "初始化 Chrome Driver 失败");
                 throw new Exception($"初始化Chrome Driver失败: {ex.Message}", ex);
             }
         }
@@ -401,6 +407,18 @@ namespace TelegramAutomation
             _inputSimulator.Keyboard.ModifiedKeyStroke(
                 VirtualKeyCode.CONTROL, 
                 VirtualKeyCode.VK_V);
+        }
+
+        public async Task RequestVerificationCode(string phoneNumber)
+        {
+            // 实现发送验证码的逻辑
+            throw new NotImplementedException("验证码发送功能尚未实现");
+        }
+
+        public async Task Login(string phoneNumber, string verificationCode)
+        {
+            // 实现登录验证的逻辑
+            throw new NotImplementedException("登录功能尚未实现");
         }
     }
 }
