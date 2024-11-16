@@ -74,8 +74,13 @@ namespace TelegramAutomation
         private async Task NavigateToChannel(string channelUrl, IProgress<string> progress, 
             CancellationToken cancellationToken)
         {
+            if (_driver == null)
+            {
+                throw new InvalidOperationException("WebDriver 未初始化");
+            }
+
             progress.Report("正在打开Telegram频道...");
-            _driver.Navigate().GoToUrl(channelUrl);
+            await Task.Run(() => _driver.Navigate().GoToUrl(channelUrl), cancellationToken);
             
             // 等待用户登录
             progress.Report("请在浏览器中手动登录Telegram...");
@@ -84,7 +89,9 @@ namespace TelegramAutomation
             try
             {
                 // 等待消息列表出现
-                wait.Until(d => d.FindElements(By.CssSelector(".message")).Count > 0);
+                await Task.Run(() => 
+                    wait.Until(d => d.FindElements(By.CssSelector(".message")).Count > 0), 
+                    cancellationToken);
                 progress.Report("登录成功，开始处理消息...");
             }
             catch (WebDriverTimeoutException)
@@ -96,12 +103,19 @@ namespace TelegramAutomation
         private async Task ProcessMessages(string savePath, IProgress<string> progress, 
             CancellationToken cancellationToken)
         {
+            if (_driver == null)
+            {
+                throw new InvalidOperationException("WebDriver 未初始化");
+            }
+
             var lastMessageCount = 0;
             var noNewMessagesCount = 0;
             
             while (_isRunning && !cancellationToken.IsCancellationRequested)
             {
-                var messages = _driver.FindElements(By.CssSelector(".message"));
+                var messages = await Task.Run(() => 
+                    _driver.FindElements(By.CssSelector(".message")), 
+                    cancellationToken);
                 
                 if (messages.Count == lastMessageCount)
                 {
@@ -131,9 +145,16 @@ namespace TelegramAutomation
         private async Task ProcessSingleMessage(IWebElement message, string savePath, 
             IProgress<string> progress, CancellationToken cancellationToken)
         {
+            if (message == null)
+            {
+                throw new ArgumentNullException(nameof(message));
+            }
+
             try
             {
-                var messageId = message.GetAttribute("data-message-id");
+                var messageId = message.GetAttribute("id") ?? 
+                    throw new InvalidOperationException("消息ID不能为空");
+                
                 if (string.IsNullOrEmpty(messageId) || _processedMessageIds.Contains(messageId))
                 {
                     return;
@@ -161,8 +182,9 @@ namespace TelegramAutomation
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "处理单条消息时出错");
+                _logger.Error(ex, "处理消息时出错");
                 progress.Report($"处理消息出错: {ex.Message}");
+                throw;
             }
         }
 
