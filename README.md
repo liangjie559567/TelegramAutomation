@@ -27,7 +27,7 @@
 
 1. 下载并安装 [.NET 6.0 Runtime](https://dotnet.microsoft.com/download/dotnet/6.0)
 2. 确保已安装 Google Chrome 浏览器
-3. 从 [Releases](https://github.com/yourusername/TelegramAutomation/releases) 页面下载最新版本
+3. 从 [Releases](https://github.com/liangjie559567/TelegramAutomation/releases) 页面下载最新版本
 4. 解压到任意目录
 
 ## 使用方法
@@ -41,6 +41,8 @@
 7. 可以随时点击"停止"按钮暂停任务
 
 ## 文件存储结构
+
+下载的内容按以下结构保存：
 
 ## 部署方法
 

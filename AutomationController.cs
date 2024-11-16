@@ -11,13 +11,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using WindowsInput;
+using WindowsInput.Native;
 
 namespace TelegramAutomation
 {
     public class AutomationController : IDisposable
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
-        private readonly InputSimulator _inputSimulator;
+        private readonly IInputSimulator _inputSimulator;
         private IWebDriver _driver;
         private bool _isRunning;
         private HashSet<string> _processedMessageIds;
@@ -337,21 +338,21 @@ namespace TelegramAutomation
 
         private void SimulateEnterKey()
         {
-            _inputSimulator.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.RETURN);
+            _inputSimulator.Keyboard.KeyPress(VirtualKeyCode.RETURN);
         }
 
         private void SimulateControlC()
         {
             _inputSimulator.Keyboard.ModifiedKeyStroke(
-                WindowsInput.Native.VirtualKeyCode.CONTROL, 
-                WindowsInput.Native.VirtualKeyCode.VK_C);
+                VirtualKeyCode.CONTROL, 
+                VirtualKeyCode.VK_C);
         }
 
         private void SimulateControlV()
         {
             _inputSimulator.Keyboard.ModifiedKeyStroke(
-                WindowsInput.Native.VirtualKeyCode.CONTROL, 
-                WindowsInput.Native.VirtualKeyCode.VK_V);
+                VirtualKeyCode.CONTROL, 
+                VirtualKeyCode.VK_V);
         }
     }
 }
