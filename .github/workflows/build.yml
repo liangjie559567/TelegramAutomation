@@ -22,8 +22,8 @@ jobs:
         dotnet-version: 6.0.x
         
     - name: List Files
-      run: |
-        dir /s
+      shell: cmd
+      run: dir /s /b
         
     - name: Build with detailed output
       run: dotnet build -c Release -v detailed
