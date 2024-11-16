@@ -8,6 +8,7 @@ using TelegramAutomation.Commands;
 using System.Windows.Forms;
 using WinForms = System.Windows.Forms;
 using WPFApplication = System.Windows.Application;
+using OpenQA.Selenium;
 
 namespace TelegramAutomation.ViewModels
 {
@@ -136,15 +137,16 @@ namespace TelegramAutomation.ViewModels
             try
             {
                 IsRunning = true;
-                Status = "正在运行...";
+                Status = "正在初始化...";
+                AddLog("正在启动Chrome浏览器...");
+                
                 _cancellationTokenSource = new CancellationTokenSource();
 
                 var progress = new Progress<string>(message =>
                 {
                     if (_lastLogUpdate.AddMilliseconds(100) < DateTime.Now)
                     {
-                        _logBuilder.AppendLine($"[{DateTime.Now:HH:mm:ss}] {message}");
-                        LogContent = _logBuilder.ToString();
+                        AddLog(message);
                         _lastLogUpdate = DateTime.Now;
                     }
                 });
@@ -156,18 +158,20 @@ namespace TelegramAutomation.ViewModels
                     _cancellationTokenSource.Token
                 ));
             }
-            catch (OperationCanceledException)
+            catch (WebDriverException ex)
             {
-                AddLog("操作已取消");
+                AddLog($"浏览器启动失败: {ex.Message}");
+                AddLog("请确保已安装最新版本的Chrome浏览器");
+                Status = "启动失败";
             }
             catch (Exception ex)
             {
-                AddLog($"错误: {ex.Message}");
+                AddLog($"发生错误: {ex.Message}");
+                Status = "出错";
             }
             finally
             {
                 IsRunning = false;
-                Status = "已停止";
                 _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
             }

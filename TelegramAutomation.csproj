@@ -23,4 +23,12 @@
     </None>
   </ItemGroup>
 
+  <!-- 确保 Chrome Driver 被复制到输出目录 -->
+  <Target Name="CopyChromeDriver" AfterTargets="Build">
+    <ItemGroup>
+      <ChromeDriver Include="$(NuGetPackageRoot)\selenium.webdriver.chromedriver\**\driver\win64\chromedriver.exe" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ChromeDriver)" DestinationFiles="$(OutDir)chromedriver.exe" SkipUnchangedFiles="true" />
+  </Target>
+
 </Project> 

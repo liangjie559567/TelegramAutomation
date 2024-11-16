@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using WindowsInput;
 using WindowsInput.Native;
+using System.Reflection;
 
 namespace TelegramAutomation
 {
@@ -55,31 +56,30 @@ namespace TelegramAutomation
             }
         }
 
-        private void InitializeWebDriver()
+        private IWebDriver InitializeWebDriver()
         {
+            var chromeOptions = new ChromeOptions();
+            
+            // 添加一些有用的选项
+            chromeOptions.AddArgument("--disable-gpu");
+            chromeOptions.AddArgument("--no-sandbox");
+            chromeOptions.AddArgument("--disable-dev-shm-usage");
+            
             try
             {
-                var options = new ChromeOptions();
-                options.AddArgument("--start-maximized");
-                options.AddArgument("--disable-notifications");
+                // 获取 Chrome Driver 的路径
+                var driverPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 
-                // 添加下载设置
-                var downloadPath = Path.Combine(Path.GetTempPath(), "TelegramDownloads");
-                Directory.CreateDirectory(downloadPath);
+                // 创建 ChromeDriverService
+                var service = ChromeDriverService.CreateDefaultService(driverPath);
+                service.HideCommandPromptWindow = true; // 隐藏命令行窗口
                 
-                options.AddUserProfilePreference("download.default_directory", downloadPath);
-                options.AddUserProfilePreference("download.prompt_for_download", false);
-
-                // 设置 ChromeDriver 路径
-                var driverService = ChromeDriverService.CreateDefaultService();
-                driverService.HideCommandPromptWindow = true;  // 隐藏命令行窗口
-
-                _driver = new ChromeDriver(driverService, options);
+                // 返回新的 ChromeDriver 实例
+                return new ChromeDriver(service, chromeOptions);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "初始化 WebDriver 失败");
-                throw new Exception("初始化浏览器失败，请确保已安装 Chrome 浏览器", ex);
+                throw new Exception($"初始化Chrome Driver失败: {ex.Message}", ex);
             }
         }
 
