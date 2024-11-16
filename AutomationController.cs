@@ -18,8 +18,7 @@ namespace TelegramAutomation
     public class AutomationController : IDisposable
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
-        private readonly IKeyboardSimulator _keyboard;
-        private readonly IMouseSimulator _mouse;
+        private readonly IInputSimulator _inputSimulator;
         private IWebDriver _driver;
         private bool _isRunning;
         private HashSet<string> _processedMessageIds;
@@ -29,9 +28,7 @@ namespace TelegramAutomation
 
         public AutomationController()
         {
-            var inputSimulator = new InputSimulator();
-            _keyboard = inputSimulator.Keyboard;
-            _mouse = inputSimulator.Mouse;
+            _inputSimulator = new InputSimulator();
             _processedMessageIds = new HashSet<string>();
         }
 
@@ -333,22 +330,22 @@ namespace TelegramAutomation
 
         private void SimulateKeyPress(string text)
         {
-            _keyboard.TextEntry(text);
+            _inputSimulator.Keyboard.TextEntry(text);
         }
 
         private void SimulateEnterKey()
         {
-            _keyboard.KeyPress(VirtualKeyCode.RETURN);
+            _inputSimulator.Keyboard.KeyPress(VirtualKeyCode.RETURN);
         }
 
         private void SimulateControlC()
         {
-            _keyboard.ModifiedKeyStroke(VirtualKeyCode.CONTROL, VirtualKeyCode.VK_C);
+            _inputSimulator.Keyboard.ModifiedKeyStroke(VirtualKeyCode.CONTROL, VirtualKeyCode.VK_C);
         }
 
         private void SimulateControlV()
         {
-            _keyboard.ModifiedKeyStroke(VirtualKeyCode.CONTROL, VirtualKeyCode.VK_V);
+            _inputSimulator.Keyboard.ModifiedKeyStroke(VirtualKeyCode.CONTROL, VirtualKeyCode.VK_V);
         }
     }
 }

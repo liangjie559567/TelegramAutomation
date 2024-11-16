@@ -21,16 +21,12 @@ jobs:
       with:
         dotnet-version: 6.0.x
         
-    - name: Cache NuGet packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
-          
-    - name: Build
-      run: dotnet build -c Release
+    - name: List Files
+      run: |
+        dir /s
+        
+    - name: Build with detailed output
+      run: dotnet build -c Release -v detailed
       
     - name: Test
       run: dotnet test -c Release --no-build
