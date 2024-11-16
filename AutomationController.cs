@@ -2,6 +2,7 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using WindowsInput;
+using WindowsInput.Native;
 using NLog;
 using System;
 using System.IO;
@@ -17,7 +18,8 @@ namespace TelegramAutomation
     public class AutomationController : IDisposable
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
-        private readonly InputSimulator _inputSimulator;
+        private readonly IKeyboardSimulator _keyboard;
+        private readonly IMouseSimulator _mouse;
         private IWebDriver _driver;
         private bool _isRunning;
         private HashSet<string> _processedMessageIds;
@@ -27,7 +29,9 @@ namespace TelegramAutomation
 
         public AutomationController()
         {
-            _inputSimulator = new InputSimulator();
+            var inputSimulator = new InputSimulator();
+            _keyboard = inputSimulator.Keyboard;
+            _mouse = inputSimulator.Mouse;
             _processedMessageIds = new HashSet<string>();
         }
 
@@ -325,6 +329,26 @@ namespace TelegramAutomation
                 }
             }
             throw new Exception("重试次数超过最大限制");
+        }
+
+        private void SimulateKeyPress(string text)
+        {
+            _keyboard.TextEntry(text);
+        }
+
+        private void SimulateEnterKey()
+        {
+            _keyboard.KeyPress(VirtualKeyCode.RETURN);
+        }
+
+        private void SimulateControlC()
+        {
+            _keyboard.ModifiedKeyStroke(VirtualKeyCode.CONTROL, VirtualKeyCode.VK_C);
+        }
+
+        private void SimulateControlV()
+        {
+            _keyboard.ModifiedKeyStroke(VirtualKeyCode.CONTROL, VirtualKeyCode.VK_V);
         }
     }
 }
