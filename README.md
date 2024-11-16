@@ -44,8 +44,76 @@
 
 下载的内容按以下结构保存：
 
+```
+TelegramDownloads/
+├── 消息ID1/
+│   ├── message.txt      # 消息文本内容
+│   ├── links.txt        # 消息中的链接
+│   └── 下载的文件.zip    # 下载的压缩包文件
+├── 消息ID2/
+│   ├── message.txt
+│   ├── links.txt
+│   └── 下载的文件.rar
+└── logs/                # 程序运行日志
+    └── 2024-03-14.log
+```
+
 ## 部署方法
 
 ### 方法一：从源码编译
 
 1. 克隆仓库
+```
+git clone https://github.com/liangjie559567/TelegramAutomation.git
+```
+
+2. 安装依赖
+```
+dotnet restore
+```
+
+3. 编译项目
+```
+dotnet build --configuration Release
+```
+
+4. 运行程序
+```
+dotnet run --project TelegramAutomation
+```
+
+### 方法二：直接使用发布版本
+
+1. 从 [Releases](https://github.com/liangjie559567/TelegramAutomation/releases) 页面下载最新版本
+2. 解压文件
+3. 运行 TelegramAutomation.exe
+
+## 注意事项
+
+- 首次使用时需要手动登录 Telegram
+- 确保有足够的磁盘空间存储下载的文件
+- 下载大文件时请保持网络稳定
+- 程序会自动创建必要的文件夹
+- 日志文件保存在"我的文档/TelegramAutomation/logs"目录下
+
+## 许可证
+
+本项目采用 MIT 许可证，详见 [LICENSE](LICENSE) 文件。
+
+## 更新日志
+
+详见 [CHANGELOG.md](CHANGELOG.md) 文件。
+
+## 贡献指南
+
+欢迎提交 Issue 和 Pull Request 来帮助改进这个项目。
+
+1. Fork 本仓库
+2. 创建你的特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交你的更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 打开一个 Pull Request
+
+## 问题反馈
+
+如果你发现任何问题或有改进建议，请在 [Issues](https://github.com/liangjie559567/TelegramAutomation/issues) 页面提交。
