@@ -27,6 +27,8 @@ namespace TelegramAutomation.ViewModels
         private string _phoneNumber = string.Empty;
         private string _verificationCode = string.Empty;
         private bool _isLoggedIn;
+        private bool _isRequestingCode;
+        private bool _isLoggingIn;
 
         public MainViewModel()
         {
@@ -92,13 +94,26 @@ namespace TelegramAutomation.ViewModels
         public string PhoneNumber
         {
             get => _phoneNumber;
-            set => SetProperty(ref _phoneNumber, value);
+            set
+            {
+                if (SetProperty(ref _phoneNumber, value))
+                {
+                    (RequestCodeCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                    (LoginCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public string VerificationCode
         {
             get => _verificationCode;
-            set => SetProperty(ref _verificationCode, value);
+            set
+            {
+                if (SetProperty(ref _verificationCode, value))
+                {
+                    (LoginCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public bool IsLoggedIn
@@ -109,6 +124,18 @@ namespace TelegramAutomation.ViewModels
                 if (SetProperty(ref _isLoggedIn, value))
                     (StartCommand as RelayCommand)?.RaiseCanExecuteChanged();
             }
+        }
+
+        public bool IsRequestingCode
+        {
+            get => _isRequestingCode;
+            private set => SetProperty(ref _isRequestingCode, value);
+        }
+
+        public bool IsLoggingIn
+        {
+            get => _isLoggingIn;
+            private set => SetProperty(ref _isLoggingIn, value);
         }
 
         public ICommand StartCommand { get; }
@@ -238,10 +265,10 @@ namespace TelegramAutomation.ViewModels
         {
             try
             {
+                IsRequestingCode = true;
                 Status = "正在请求验证码...";
                 AddLog($"正在向 {PhoneNumber} 发送验证码...");
                 
-                // 调用 Controller 的方法发送验证码
                 await _controller.RequestVerificationCode(PhoneNumber);
                 
                 AddLog("验证码已发送，请查收");
@@ -252,16 +279,20 @@ namespace TelegramAutomation.ViewModels
                 AddLog($"请求验证码失败: {ex.Message}");
                 Status = "验证码请求失败";
             }
+            finally
+            {
+                IsRequestingCode = false;
+            }
         }
 
         private async void Login()
         {
             try
             {
+                IsLoggingIn = true;
                 Status = "正在登录...";
                 AddLog("正在验证登录...");
                 
-                // 调用 Controller 的方法验证登录
                 await _controller.Login(PhoneNumber, VerificationCode);
                 
                 IsLoggedIn = true;
@@ -273,6 +304,10 @@ namespace TelegramAutomation.ViewModels
                 AddLog($"登录失败: {ex.Message}");
                 Status = "登录失败";
                 IsLoggedIn = false;
+            }
+            finally
+            {
+                IsLoggingIn = false;
             }
         }
 

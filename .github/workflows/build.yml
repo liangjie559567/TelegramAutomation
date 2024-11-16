@@ -2,16 +2,38 @@ name: Build and Release
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
     tags: [ 'v*' ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 permissions:
   contents: write
 
 jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 6.0.x
+        
+    - name: Install dependencies
+      run: dotnet restore
+        
+    - name: Run tests
+      run: dotnet test --verbosity normal --collect:"XPlat Code Coverage"
+      
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   build:
+    needs: test
     runs-on: windows-latest
     
     steps:
@@ -24,15 +46,16 @@ jobs:
       with:
         dotnet-version: 6.0.x
         
-    - name: Restore dependencies
+    - name: Install dependencies
       run: dotnet restore
         
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: |
+        dotnet build --configuration Release `
+          /p:Version=${{ github.ref_name }} `
+          /p:AssemblyVersion=${{ github.ref_name }} `
+          /p:FileVersion=${{ github.ref_name }}
       
-    - name: Test
-      run: dotnet test --configuration Release --no-build
-        
     - name: Publish
       run: |
         dotnet publish --configuration Release `
@@ -41,7 +64,12 @@ jobs:
           --output ./publish `
           /p:PublishSingleFile=true `
           /p:IncludeNativeLibrariesForSelfExtract=true `
-          /p:EnableCompressionInSingleFile=true
+          /p:EnableCompressionInSingleFile=true `
+          /p:DebugType=None `
+          /p:DebugSymbols=false
+      
+    - name: Run Integration Tests
+      run: dotnet test ./tests/TelegramAutomation.IntegrationTests --configuration Release
       
     - name: Package Release
       shell: pwsh
@@ -50,7 +78,8 @@ jobs:
         Copy-Item "publish\TelegramAutomation.exe" -Destination "release\"
         Copy-Item "nlog.config" -Destination "release\"
         Copy-Item "README.md" -Destination "release\"
-        Copy-Item "LICENSE" -Destination "release\" -ErrorAction SilentlyContinue
+        Copy-Item "LICENSE" -Destination "release\"
+        Copy-Item "CHANGELOG.md" -Destination "release\"
         Compress-Archive -Path "release\*" -DestinationPath "TelegramAutomation.zip" -Force
       
     - name: Create Release
@@ -61,5 +90,12 @@ jobs:
         draft: false
         prerelease: false
         body_path: CHANGELOG.md
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: TelegramAutomation
+        path: release/
