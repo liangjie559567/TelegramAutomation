@@ -206,7 +206,7 @@ namespace TelegramAutomation
                     }
                     else
                     {
-                        // 保存其他链接到文本文件
+                        // 保存其他链接���文本文件
                         await File.AppendAllTextAsync(
                             Path.Combine(messageFolder, "links.txt"),
                             $"{href}\n",
@@ -229,12 +229,25 @@ namespace TelegramAutomation
 
         private async Task ScrollAndWait(IProgress<string> progress, CancellationToken cancellationToken)
         {
+            if (_driver == null)
+            {
+                throw new InvalidOperationException("WebDriver 未初始化");
+            }
+
             try
             {
-                // 使用JavaScript滚动
-                ((IJavaScriptExecutor)_driver).ExecuteScript(
-                    "window.scrollTo(0, document.body.scrollHeight);"
-                );
+                // 使用类型转换前先检查
+                if (_driver is IJavaScriptExecutor jsExecutor)
+                {
+                    await Task.Run(() => 
+                        jsExecutor.ExecuteScript("window.scrollTo(0, document.body.scrollHeight);"),
+                        cancellationToken
+                    );
+                }
+                else
+                {
+                    throw new InvalidOperationException("WebDriver 不支持 JavaScript 执行");
+                }
                 
                 await Task.Delay(SCROLL_WAIT_TIME, cancellationToken);
             }
@@ -242,6 +255,7 @@ namespace TelegramAutomation
             {
                 _logger.Error(ex, "滚动页面时出错");
                 progress.Report($"滚动页面出错: {ex.Message}");
+                throw;
             }
         }
 
