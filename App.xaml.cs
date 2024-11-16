@@ -1,9 +1,10 @@
 using System.Windows;
 using NLog;
+using WPFApplication = System.Windows.Application;
 
 namespace TelegramAutomation
 {
-    public partial class App : Application
+    public partial class App : WPFApplication
     {
         protected override void OnStartup(StartupEventArgs e)
         {
