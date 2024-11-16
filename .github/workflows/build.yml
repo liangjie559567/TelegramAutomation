@@ -26,12 +26,18 @@ jobs:
       run: dotnet build --configuration Release --no-restore
       
     - name: Publish
-      run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
-      
-    - name: Create Release ZIP
       run: |
-        cd bin/Release/net6.0-windows/win-x64/publish
-        7z a -tzip ../../../../../TelegramAutomation.zip *
+        dotnet publish -c Release -r win-x64 --self-contained true `
+        -p:PublishSingleFile=true `
+        -p:IncludeNativeLibrariesForSelfExtract=true `
+        -p:EnableCompressionInSingleFile=true
+      
+    - name: Package Release
+      run: |
+        mkdir release
+        copy "bin\Release\net6.0-windows\win-x64\publish\TelegramAutomation.exe" "release\"
+        copy "bin\Release\net6.0-windows\win-x64\publish\nlog.config" "release\"
+        Compress-Archive -Path "release\*" -DestinationPath "TelegramAutomation.zip"
       
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
@@ -41,4 +47,4 @@ jobs:
         draft: false
         prerelease: false
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
