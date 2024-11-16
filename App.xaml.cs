@@ -1,4 +1,5 @@
 using System.Windows;
+using NLog;
 
 namespace TelegramAutomation
 {
@@ -8,10 +9,9 @@ namespace TelegramAutomation
         {
             base.OnStartup(e);
             
-            // 初始化日志配置
-            NLog.LogManager.LoadConfiguration("nlog.config");
+            // 更新 NLog 配置方法
+            LogManager.Setup().LoadConfigurationFromFile("nlog.config");
             
-            // 创建并显示主窗口
             MainWindow mainWindow = new MainWindow();
             mainWindow.Show();
         }

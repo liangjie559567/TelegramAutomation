@@ -19,7 +19,7 @@ namespace TelegramAutomation
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
         private readonly InputSimulator _inputSimulator;
-        private IWebDriver _driver;
+        private IWebDriver? _driver;
         private bool _isRunning;
         private HashSet<string> _processedMessageIds;
         private const int SCROLL_WAIT_TIME = 1000; // 滚动等待时间(毫秒)

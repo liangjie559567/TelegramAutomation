@@ -1,11 +1,12 @@
 using System;
 using System.Windows.Input;
-using Microsoft.Win32;
 using System.Text;
 using System.Threading;
 using System.IO;
 using System.Threading.Tasks;
 using TelegramAutomation.Commands;
+using System.Windows.Forms;
+using Application = System.Windows.Application;
 
 namespace TelegramAutomation.ViewModels
 {
@@ -13,7 +14,7 @@ namespace TelegramAutomation.ViewModels
     {
         private readonly AutomationController _controller;
         private readonly StringBuilder _logBuilder;
-        private CancellationTokenSource _cancellationTokenSource;
+        private CancellationTokenSource? _cancellationTokenSource;
 
         private string _channelUrl = string.Empty;
         private string _savePath = string.Empty;
@@ -180,14 +181,14 @@ namespace TelegramAutomation.ViewModels
 
         private void BrowseFolder()
         {
-            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            using var dialog = new FolderBrowserDialog
             {
                 Description = "选择下载文件保存位置",
                 UseDescriptionForTitle = true,
                 SelectedPath = SavePath
             };
 
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            if (dialog.ShowDialog() == DialogResult.OK)
             {
                 SavePath = dialog.SelectedPath;
             }
