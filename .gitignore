@@ -44,3 +44,8 @@ bld/
 
 # Chrome Driver
 chromedriver.exe 
+
+# Release files
+release/
+*.zip
+CHANGELOG.md.backup 

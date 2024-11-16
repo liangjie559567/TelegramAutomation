@@ -1,8 +1,11 @@
+using System;
 using System.Windows.Input;
 using Microsoft.Win32;
 using System.Text;
 using System.Threading;
 using System.IO;
+using System.Threading.Tasks;
+using TelegramAutomation.Commands;
 
 namespace TelegramAutomation.ViewModels
 {
@@ -12,11 +15,12 @@ namespace TelegramAutomation.ViewModels
         private readonly StringBuilder _logBuilder;
         private CancellationTokenSource _cancellationTokenSource;
 
-        private string _channelUrl;
-        private string _savePath;
-        private string _logContent;
-        private string _status;
+        private string _channelUrl = string.Empty;
+        private string _savePath = string.Empty;
+        private string _logContent = string.Empty;
+        private string _status = string.Empty;
         private bool _isRunning;
+        private DateTime _lastLogUpdate;
 
         public MainViewModel()
         {
@@ -29,6 +33,7 @@ namespace TelegramAutomation.ViewModels
 
             // 设置默认保存路径
             SavePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "TelegramDownloads");
+            _lastLogUpdate = DateTime.Now;
         }
 
         public string ChannelUrl
@@ -201,4 +206,4 @@ namespace TelegramAutomation.ViewModels
             _controller?.Dispose();
         }
     }
-} 
+}

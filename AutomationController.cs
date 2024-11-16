@@ -3,6 +3,13 @@ using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using WindowsInput;
 using NLog;
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace TelegramAutomation
@@ -320,4 +327,4 @@ namespace TelegramAutomation
             throw new Exception("重试次数超过最大限制");
         }
     }
-} 
+}
