@@ -1,3 +1,4 @@
+using System.Windows;
 using TelegramAutomation.ViewModels;
 
 namespace TelegramAutomation
