@@ -24,13 +24,18 @@ jobs:
     - name: Install dependencies
       run: dotnet restore
         
-    - name: Run tests
-      run: dotnet test --verbosity normal --collect:"XPlat Code Coverage"
-      
-    - name: Upload coverage reports
+    - name: Run tests with coverage
+      run: dotnet test --configuration Release /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:CoverletOutput=./TestResults/Coverage/
+
+    - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./TestResults/Coverage/coverage.opencover.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+        verbose: true
 
   build:
     needs: test
@@ -67,9 +72,6 @@ jobs:
           /p:EnableCompressionInSingleFile=true `
           /p:DebugType=None `
           /p:DebugSymbols=false
-      
-    - name: Run Integration Tests
-      run: dotnet test ./tests/TelegramAutomation.IntegrationTests --configuration Release
       
     - name: Package Release
       shell: pwsh
