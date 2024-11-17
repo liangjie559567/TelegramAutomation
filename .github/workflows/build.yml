@@ -40,6 +40,33 @@ jobs:
       run: |
         dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=false
       
+    - name: Test ChromeDriver
+      run: |
+        $driverPath = "bin\Release\net6.0-windows\chromedriver.exe"
+        Write-Host "检查 ChromeDriver 是否存在: $driverPath"
+        if (Test-Path $driverPath) {
+          Write-Host "ChromeDriver 文件存在"
+          $version = (Get-Item $driverPath).VersionInfo.FileVersion
+          Write-Host "ChromeDriver 版本: $version"
+          
+          # 尝试启动 ChromeDriver
+          try {
+            $process = Start-Process -FilePath $driverPath -ArgumentList "--version" -NoNewWindow -PassThru -Wait
+            if ($process.ExitCode -eq 0) {
+              Write-Host "ChromeDriver 启动测试成功"
+            } else {
+              Write-Error "ChromeDriver 启动测试失败"
+              exit 1
+            }
+          } catch {
+            Write-Error "ChromeDriver 启动失败: $_"
+            exit 1
+          }
+        } else {
+          Write-Error "ChromeDriver 文件不存在"
+          exit 1
+        }
+      
     - name: Test
       run: dotnet test --no-build --verbosity normal
       
