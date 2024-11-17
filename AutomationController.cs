@@ -61,9 +61,13 @@ namespace TelegramAutomation
                 options.AddUserProfilePreference("download.default_directory", downloadPath);
                 options.AddUserProfilePreference("download.prompt_for_download", false);
                 options.AddUserProfilePreference("safebrowsing.enabled", true);
-                
-                var service = ChromeDriverService.CreateDefaultService();
+
+                // 明确指定 ChromeDriver 路径
+                var driverPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var service = ChromeDriverService.CreateDefaultService(driverPath);
                 service.HideCommandPromptWindow = true;
+
+                _logger.Info($"ChromeDriver 路径: {driverPath}");
                 
                 for (int i = 0; i < 3; i++)
                 {
@@ -72,17 +76,21 @@ namespace TelegramAutomation
                         _driver = new ChromeDriver(service, options);
                         _driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(30);
                         _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+                        _logger.Info("浏览器初始化成功");
                         break;
                     }
                     catch (WebDriverException ex)
                     {
                         _logger.Warn($"尝试初始化浏览器失败 ({i + 1}/3): {ex.Message}");
-                        if (i == 2) throw;
+                        if (i == 2) 
+                        {
+                            _logger.Error($"ChromeDriver 路径: {driverPath}");
+                            _logger.Error($"ChromeDriver 是否存在: {File.Exists(Path.Combine(driverPath, "chromedriver.exe"))}");
+                            throw;
+                        }
                         await Task.Delay(1000);
                     }
                 }
-                
-                _logger.Info("浏览器初始化成功");
             }
             catch (Exception ex)
             {
@@ -280,7 +288,7 @@ namespace TelegramAutomation
                 catch (Exception ex) when (i < maxRetries - 1)
                 {
                     _logger.Warn($"操作失败，准备重试 ({i + 1}/{maxRetries}): {ex.Message}");
-                    await Task.Delay(1000 * (i + 1)); // 指数退避
+                    await Task.Delay(1000 * (i + 1));
                 }
             }
             throw new Exception($"操作失败，已重试 {maxRetries} 次");
@@ -290,8 +298,11 @@ namespace TelegramAutomation
         {
             if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
 
-            var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
-            return await Task.Run(() => wait.Until(d => d.FindElement(by)));
+            return await Task.Run(() =>
+            {
+                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
+                return wait.Until(d => d.FindElement(by));
+            });
         }
 
         private async Task<bool> WaitForElementVisible(By by, int timeoutSeconds = 30)
@@ -311,15 +322,18 @@ namespace TelegramAutomation
         {
             foreach (var c in text)
             {
-                if (char.IsDigit(c))
+                await Task.Run(() =>
                 {
-                    await Task.Run(() => _inputSimulator.Keyboard.TextEntry(c));
-                }
-                else
-                {
-                    await Task.Run(() => _inputSimulator.Keyboard.TextEntry(c.ToString()));
-                }
-                await Task.Delay(Random.Shared.Next(50, 150)); // 随机延迟
+                    if (char.IsDigit(c))
+                    {
+                        _inputSimulator.Keyboard.TextEntry(c);
+                    }
+                    else
+                    {
+                        _inputSimulator.Keyboard.TextEntry(c.ToString());
+                    }
+                });
+                await Task.Delay(Random.Shared.Next(50, 150));
             }
         }
 
@@ -349,11 +363,9 @@ namespace TelegramAutomation
                 await Task.Run(() => _driver.Navigate().GoToUrl(channelUrl));
                 progress.Report("已打开频道页面");
                 
-                // 创建保存目录
                 Directory.CreateDirectory(savePath);
                 
-                // 处理消息
-                var messages = _driver.FindElements(By.CssSelector(".message"));
+                var messages = await Task.Run(() => _driver.FindElements(By.CssSelector(".message")));
                 foreach (var message in messages)
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -362,7 +374,7 @@ namespace TelegramAutomation
                         return;
                     }
 
-                    var messageId = message.GetAttribute("data-message-id");
+                    var messageId = await Task.Run(() => message.GetAttribute("data-message-id"));
                     var messageFolder = Path.Combine(savePath, messageId);
                     
                     await _messageProcessor.ProcessMessage(message, messageFolder, progress, cancellationToken);

@@ -4,7 +4,7 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.3.7</Version>
+    <Version>1.3.8</Version>
     <Authors>liangjie559567</Authors>
     <Company>TelegramAutomation</Company>
     <Description>Telegram频道自动化下载工具</Description>
@@ -39,20 +39,25 @@
     <PropertyGroup>
       <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\122.0.6261.5700\driver\win32\chromedriver.exe</ChromeDriverPath>
     </PropertyGroup>
+    <Message Text="正在复制 ChromeDriver..." Importance="high" />
+    <Message Text="源路径: $(ChromeDriverPath)" Importance="high" />
+    <Message Text="目标路径: $(OutDir)" Importance="high" />
+    
+    <Error 
+      Text="ChromeDriver 文件不存在: $(ChromeDriverPath)" 
+      Condition="!Exists('$(ChromeDriverPath)')"
+    />
+    
     <Copy 
       SourceFiles="$(ChromeDriverPath)" 
       DestinationFolder="$(OutDir)" 
       SkipUnchangedFiles="true" 
-      Condition="Exists('$(ChromeDriverPath)')"
     />
+    
     <Message 
-      Text="ChromeDriver copied successfully from: $(ChromeDriverPath)" 
+      Text="ChromeDriver 复制成功" 
       Importance="high" 
-      Condition="Exists('$(ChromeDriverPath)')"
-    />
-    <Warning 
-      Text="ChromeDriver not found at: $(ChromeDriverPath)" 
-      Condition="!Exists('$(ChromeDriverPath)')"
+      Condition="Exists('$(OutDir)chromedriver.exe')"
     />
   </Target>
 </Project> 
