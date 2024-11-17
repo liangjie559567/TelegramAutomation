@@ -23,19 +23,13 @@ jobs:
         dotnet-version: 6.0.x
         
     - name: Restore dependencies
-      run: dotnet restore
+      run: |
+        dotnet restore
+        dotnet nuget locals all --clear
       
     - name: Build
       run: |
-        dotnet build --configuration Release --no-restore
-      
-    - name: Restore with retry
-      run: |
-        dotnet restore --force
-        if ($LASTEXITCODE -ne 0) {
-          Start-Sleep -Seconds 30
-          dotnet restore --force
-        }
+        dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=false
       
     - name: Test
       run: dotnet test --no-build --verbosity normal

@@ -281,7 +281,7 @@ namespace TelegramAutomation
             catch (WebDriverException ex)
             {
                 _logger.Error(ex, "浏览器操作失败");
-                throw new Exception("浏览器操作失败，请检查网络连接", ex);
+                throw new Exception("浏览器操作失败，请检���网络连接", ex);
             }
             catch (Exception ex)
             {
@@ -374,9 +374,10 @@ namespace TelegramAutomation
             {
                 if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
                 
-                await Task.Run(async () => 
+                await Task.Run(() => 
                 {
-                    await _driver.Navigate().GoToUrlAsync(channelUrl);
+                    _driver.Navigate().GoToUrl(channelUrl);
+                    
                     var messages = _driver.FindElements(By.CssSelector(".message"));
                     foreach (var message in messages)
                     {
@@ -389,7 +390,8 @@ namespace TelegramAutomation
                         var messageId = message.GetAttribute("data-message-id");
                         var messageFolder = Path.Combine(savePath, messageId);
                         
-                        await _messageProcessor.ProcessMessage(message, messageFolder, progress, cancellationToken);
+                        _messageProcessor.ProcessMessage(message, messageFolder, progress, cancellationToken)
+                            .GetAwaiter().GetResult();
                     }
                 }, cancellationToken);
                 
