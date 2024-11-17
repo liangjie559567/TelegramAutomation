@@ -65,28 +65,58 @@ namespace TelegramAutomation
                 options.AddUserProfilePreference("download.prompt_for_download", false);
                 options.AddUserProfilePreference("safebrowsing.enabled", true);
 
-                var possiblePaths = new[]
+                var possiblePaths = new List<string>
                 {
                     Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "chromedriver.exe"),
-                    Path.Combine(Environment.CurrentDirectory, "chromedriver.exe"),
-                    Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "chromedriver.exe")
+                    Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "chromedriver.exe"),
+                    Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                        ".nuget",
+                        "packages",
+                        "selenium.webdriver.chromedriver",
+                        "122.0.6261.5700",
+                        "driver",
+                        "win32",
+                        "chromedriver.exe"
+                    ),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "publish", "chromedriver.exe")
                 };
 
+                var pathVar = Environment.GetEnvironmentVariable("PATH");
+                if (!string.IsNullOrEmpty(pathVar))
+                {
+                    foreach (var path in pathVar.Split(Path.PathSeparator))
+                    {
+                        if (!string.IsNullOrEmpty(path))
+                        {
+                            possiblePaths.Add(Path.Combine(path, "chromedriver.exe"));
+                        }
+                    }
+                }
+
                 string? driverPath = null;
-                foreach (var path in possiblePaths)
+                foreach (var path in possiblePaths.Where(p => !string.IsNullOrEmpty(p)))
                 {
                     _logger.Info($"检查 ChromeDriver 路径: {path}");
-                    if (File.Exists(path))
+                    try
                     {
-                        driverPath = path;
-                        _logger.Info($"找到 ChromeDriver: {path}");
-                        break;
+                        if (File.Exists(path))
+                        {
+                            driverPath = path;
+                            _logger.Info($"找到 ChromeDriver: {path}");
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn($"检查路径失败: {path}, 错误: {ex.Message}");
                     }
                 }
 
                 if (driverPath == null)
                 {
-                    throw new FileNotFoundException("ChromeDriver 未找到，请确保 chromedriver.exe 在应用程序目录中");
+                    throw new FileNotFoundException("ChromeDriver 未找到，请确保 chromedriver.exe 在应用程序目录中。已检查的路径：" + 
+                        string.Join("\n", possiblePaths));
                 }
 
                 var service = ChromeDriverService.CreateDefaultService(Path.GetDirectoryName(driverPath));

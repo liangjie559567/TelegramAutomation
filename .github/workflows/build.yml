@@ -66,6 +66,87 @@ jobs:
           Write-Error "ChromeDriver 文件不存在"
           exit 1
         }
+
+    - name: Test Login Module
+      run: |
+        Write-Host "开始测试登录模块..."
+        
+        # 测试手机号码输入
+        Write-Host "测试手机号码输入功能"
+        $testPhones = @(
+          "+1234567890",
+          "+861234567890",
+          "12345678901"
+        )
+        
+        foreach ($phone in $testPhones) {
+          Write-Host "测试手机号: $phone"
+          try {
+            # 检查 InputSimulator 是否正常工作
+            $testFile = "phone_input_test.txt"
+            Set-Content -Path $testFile -Value ""
+            $process = Start-Process -FilePath "notepad.exe" -ArgumentList $testFile -PassThru
+            Start-Sleep -Seconds 1
+            
+            # 模拟输入
+            Add-Type -AssemblyName System.Windows.Forms
+            [System.Windows.Forms.SendKeys]::SendWait($phone)
+            Start-Sleep -Seconds 1
+            
+            # 检查结果
+            $content = Get-Content -Path $testFile
+            if ($content -eq $phone) {
+              Write-Host "手机号输入测试成功: $phone"
+            } else {
+              Write-Host "手机号输入测试失败: $phone"
+            }
+            
+            # 清理
+            Stop-Process -Id $process.Id -Force
+            Remove-Item $testFile
+          } catch {
+            Write-Error "手机号输入测试失败: $_"
+          }
+        }
+        
+        # 测试验证码输入
+        Write-Host "测试验证码输入功能"
+        $testCodes = @(
+          "123456",
+          "000000",
+          "999999"
+        )
+        
+        foreach ($code in $testCodes) {
+          Write-Host "测试验证码: $code"
+          try {
+            $testFile = "code_input_test.txt"
+            Set-Content -Path $testFile -Value ""
+            $process = Start-Process -FilePath "notepad.exe" -ArgumentList $testFile -PassThru
+            Start-Sleep -Seconds 1
+            
+            # 模拟输入
+            Add-Type -AssemblyName System.Windows.Forms
+            [System.Windows.Forms.SendKeys]::SendWait($code)
+            Start-Sleep -Seconds 1
+            
+            # 检查结果
+            $content = Get-Content -Path $testFile
+            if ($content -eq $code) {
+              Write-Host "验证码输入测试成功: $code"
+            } else {
+              Write-Host "验证码输入测试失败: $code"
+            }
+            
+            # 清理
+            Stop-Process -Id $process.Id -Force
+            Remove-Item $testFile
+          } catch {
+            Write-Error "验证码输入测试失败: $_"
+          }
+        }
+        
+        Write-Host "登录模块测试完成"
       
     - name: Test
       run: dotnet test --no-build --verbosity normal
