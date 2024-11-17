@@ -189,7 +189,7 @@ namespace TelegramAutomation.ViewModels
             {
                 IsRunning = true;
                 Status = "正在初始化...";
-                AddLog("正在启动Chrome浏览器...");
+                AddLog("正在启动自动化任务...");
                 
                 _cancellationTokenSource = new CancellationTokenSource();
 
@@ -198,6 +198,7 @@ namespace TelegramAutomation.ViewModels
                     if (_lastLogUpdate.AddMilliseconds(100) < DateTime.Now)
                     {
                         AddLog(message);
+                        Status = message;
                         _lastLogUpdate = DateTime.Now;
                     }
                 });
@@ -208,17 +209,27 @@ namespace TelegramAutomation.ViewModels
                     progress, 
                     _cancellationTokenSource.Token
                 ));
+
+                Status = "任务完成";
+                AddLog("自动化任务完成");
+            }
+            catch (OperationCanceledException)
+            {
+                Status = "已停止";
+                AddLog("任务已停止");
             }
             catch (WebDriverException ex)
             {
-                AddLog($"浏览器启动失败: {ex.Message}");
+                AddLog($"浏览器操作失败: {ex.Message}");
                 AddLog("请确保已安装最新版本的Chrome浏览器");
-                Status = "启动失败";
+                Status = "任务失败";
+                _logger.Error(ex, "浏览器操作失败");
             }
             catch (Exception ex)
             {
-                AddLog($"发生错误: {ex.Message}");
-                Status = "出错";
+                AddLog($"任务失败: {ex.Message}");
+                Status = "任务失败";
+                _logger.Error(ex, "自动化任务失败");
             }
             finally
             {
@@ -230,9 +241,18 @@ namespace TelegramAutomation.ViewModels
 
         private void StopAutomation()
         {
-            _cancellationTokenSource?.Cancel();
-            _controller.Stop();
-            Status = "正在停止...";
+            try
+            {
+                _cancellationTokenSource?.Cancel();
+                _controller.Stop();
+                Status = "正在停止...";
+                AddLog("正在停止任务...");
+            }
+            catch (Exception ex)
+            {
+                AddLog($"停止任务时出错: {ex.Message}");
+                _logger.Error(ex, "停止任务失败");
+            }
         }
 
         private void BrowseFolder()
@@ -258,9 +278,16 @@ namespace TelegramAutomation.ViewModels
 
         private async Task RequestVerificationCode()
         {
+            if (string.IsNullOrWhiteSpace(PhoneNumber) || !PhoneNumber.StartsWith("+"))
+            {
+                AddLog("错误: 请输入正确的手机号码格式（以+开头）");
+                return;
+            }
+
             try
             {
                 IsRequestingCode = true;
+                Status = "正在发送验证码...";
                 AddLog($"正在发送验证码到 {PhoneNumber}...");
                 
                 await _controller.InitializeBrowser();
@@ -268,10 +295,19 @@ namespace TelegramAutomation.ViewModels
                 await _controller.RequestVerificationCode(PhoneNumber);
                 
                 AddLog("验证码已发送，请查收");
+                Status = "等待验证码";
+            }
+            catch (WebDriverException ex)
+            {
+                AddLog($"浏览器操作失败: {ex.Message}");
+                AddLog("请确保已安装最新版本的Chrome浏览器");
+                Status = "发送失败";
+                _logger.Error(ex, "浏览器操作失败");
             }
             catch (Exception ex)
             {
                 AddLog($"发送验证码失败: {ex.Message}");
+                Status = "发送失败";
                 _logger.Error(ex, "发送验证码失败");
             }
             finally
@@ -282,9 +318,16 @@ namespace TelegramAutomation.ViewModels
 
         private async Task Login()
         {
+            if (string.IsNullOrWhiteSpace(VerificationCode))
+            {
+                AddLog("错误: 请输入验证码");
+                return;
+            }
+
             try
             {
                 IsLoggingIn = true;
+                Status = "正在登录...";
                 AddLog("正在登录...");
                 
                 await _controller.Login(PhoneNumber, VerificationCode);
@@ -293,23 +336,37 @@ namespace TelegramAutomation.ViewModels
                 AddLog("登录成功");
                 Status = "已登录";
             }
+            catch (WebDriverException ex)
+            {
+                AddLog($"浏览器操作失败: {ex.Message}");
+                Status = "登录失败";
+                _logger.Error(ex, "浏览器操作失败");
+            }
             catch (Exception ex)
             {
                 AddLog($"登录失败: {ex.Message}");
-                _logger.Error(ex, "登录失败");
                 Status = "登录失败";
+                _logger.Error(ex, "登录失败");
             }
             finally
             {
                 IsLoggingIn = false;
+                VerificationCode = string.Empty; // 清空验证码
             }
         }
 
         public void Dispose()
         {
-            _cancellationTokenSource?.Cancel();
-            _cancellationTokenSource?.Dispose();
-            _controller?.Dispose();
+            try
+            {
+                _cancellationTokenSource?.Cancel();
+                _cancellationTokenSource?.Dispose();
+                _controller?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "资源释放失败");
+            }
         }
     }
 }

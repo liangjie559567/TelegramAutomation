@@ -14,6 +14,7 @@ using WindowsInput;
 using System.Reflection;
 using TelegramAutomation.Models;
 using TelegramAutomation.Services;
+using WindowsInput.Native;
 
 namespace TelegramAutomation
 {
@@ -290,8 +291,15 @@ namespace TelegramAutomation
         {
             foreach (var c in text)
             {
-                _inputSimulator.Keyboard.TextEntry(c.ToString());
-                Thread.Sleep(50); // 模拟人工输入的延迟
+                if (char.IsDigit(c))
+                {
+                    _inputSimulator.Keyboard.TextEntry(c);
+                }
+                else
+                {
+                    _inputSimulator.Keyboard.TextEntry(c.ToString());
+                }
+                Thread.Sleep(Random.Shared.Next(50, 150)); // 随机延迟
             }
         }
 
