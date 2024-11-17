@@ -1,5 +1,7 @@
+using System;
 using System.Windows;
 using NLog;
+using TelegramAutomation.Views;
 
 namespace TelegramAutomation
 {

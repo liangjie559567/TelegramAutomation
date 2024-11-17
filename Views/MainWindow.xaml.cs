@@ -1,7 +1,7 @@
 using System.Windows;
 using TelegramAutomation.ViewModels;
 
-namespace TelegramAutomation
+namespace TelegramAutomation.Views
 {
     public partial class MainWindow : Window
     {

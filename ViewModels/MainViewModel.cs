@@ -8,6 +8,8 @@ using TelegramAutomation.Commands;
 using System.Windows.Forms;
 using OpenQA.Selenium;
 using NLog;
+using TelegramAutomation.Models;
+using TelegramAutomation.Services;
 
 namespace TelegramAutomation.ViewModels
 {
