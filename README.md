@@ -26,9 +26,6 @@ TelegramAutomation/
 │   ├── MainWindow.xaml         # 主窗口界面
 │   └── MainWindow.xaml.cs      # 主窗口代码
 │
-├── Resources/                   # 资源文件
-│   └── app.ico                 # 应用程序图标
-│
 ├── AutomationController.cs      # 自动化控制器
 ├── App.xaml                     # 应用程序定义
 ├── App.xaml.cs                 # 应用程序入口
@@ -126,3 +123,11 @@ TelegramAutomation/
 5. 日志性能优化
 
 需要我详细解释任何部分吗？
+
+## 依赖说明
+
+- **WindowsInput (6.4.1)**: 键盘输入模拟
+- **NLog (5.2.8)**: 日志管理
+- **Selenium.WebDriver (4.18.1)**: 浏览器自动化
+- **System.Text.Json (8.0.0)**: JSON 处理
+- **Microsoft.Extensions.Configuration.Json (8.0.0)**: 配置管理
