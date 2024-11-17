@@ -26,8 +26,10 @@ jobs:
       run: |
         dotnet nuget locals all --clear
         
-    - name: Add NuGet Source
+    - name: Configure NuGet
       run: |
+        dotnet nuget list source
+        dotnet nuget remove source nuget.org --non-interactive || true
         dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
         
     - name: Restore dependencies
