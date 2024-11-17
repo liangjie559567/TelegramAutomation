@@ -20,16 +20,22 @@ TelegramAutomation/
 │   └── ViewModelBase.cs        # 视图模型基类
 │
 ├── Views/                       # 视图层
-│   └── MainWindow.xaml         # 主窗口界面
+│   ├── MainWindow.xaml         # 主窗口界面
+│   └── MainWindow.xaml.cs      # 主窗口代码
 │
 ├── AutomationController.cs      # 自动化控制器
 ├── App.xaml                     # 应用程序定义
 ├── App.xaml.cs                 # 应用程序入口
-│
 ├── nlog.config                 # NLog 配置文件
 ├── appsettings.json           # 应用程序配置文件
 └── TelegramAutomation.csproj  # 项目文件
 ```
+
+## 待办事项
+
+1. 移动文件到正确位置：
+   - 将根目录的 MainWindow.xaml 和 MainWindow.xaml.cs 移动到 Views 目录
+   - 更新相关命名空间和引用
 
 ## 模块说明
 
@@ -40,6 +46,8 @@ TelegramAutomation/
 
 ### 2. 用户界面 (UI)
 - **Views**: WPF 界面定义
+  - MainWindow.xaml: 主窗口界面（需要整理）
+  - MainWindow.xaml.cs: 主窗口代码（需要整理）
 - **ViewModels**: MVVM 模式的视图模型实现
 - **Commands**: 命令模式实现，处理用户操作
 
@@ -47,6 +55,7 @@ TelegramAutomation/
 - **AppSettings**: 应用程序配置管理
 - **DownloadConfiguration**: 下载相关配置
 - **nlog.config**: 日志配置
+- **appsettings.json**: 应用程序配置文件
 
 ### 4. 功能模块
 

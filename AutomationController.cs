@@ -33,6 +33,7 @@ namespace TelegramAutomation
             _config = config ?? new DownloadConfiguration();
             _downloadSemaphore = new SemaphoreSlim(_config.MaxConcurrentDownloads);
             _inputSimulator = new InputSimulator();
+            _cancellationTokenSource = new CancellationTokenSource();
         }
 
         public async Task InitializeBrowser()
@@ -192,6 +193,74 @@ namespace TelegramAutomation
             _inputSimulator.Keyboard.ModifiedKeyStroke(
                 VirtualKeyCode.CONTROL, 
                 VirtualKeyCode.VK_V);
+        }
+
+        public async Task RequestVerificationCode(string phoneNumber)
+        {
+            try
+            {
+                if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
+
+                // 等待手机号码输入框出现
+                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(10));
+                var phoneInput = wait.Until(d => d.FindElement(By.CssSelector("input[type='tel']")));
+
+                // 清除并输入手机号码
+                phoneInput.Clear();
+                SimulateKeyPress(phoneNumber);
+                await Task.Delay(500);
+
+                // 点击下一步按钮
+                var nextButton = _driver.FindElement(By.CssSelector("button.btn-primary"));
+                nextButton.Click();
+
+                // 等待验证码发送
+                await Task.Delay(_config.LoginWaitTime);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "请求验证码失败");
+                throw;
+            }
+        }
+
+        public async Task Login(string phoneNumber, string verificationCode)
+        {
+            try
+            {
+                if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
+
+                // 等待验证码输入框出现
+                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(10));
+                var codeInput = wait.Until(d => d.FindElement(By.CssSelector("input[type='text']")));
+
+                // 输入验证码
+                codeInput.Clear();
+                SimulateKeyPress(verificationCode);
+                await Task.Delay(500);
+
+                // 点击登录按钮
+                var loginButton = _driver.FindElement(By.CssSelector("button.btn-primary"));
+                loginButton.Click();
+
+                // 等待登录完成
+                await Task.Delay(_config.LoginWaitTime);
+
+                // 验证登录状态
+                try
+                {
+                    wait.Until(d => d.FindElement(By.CssSelector(".chat-list")));
+                }
+                catch (WebDriverTimeoutException)
+                {
+                    throw new Exception("登录失败，请检查验证码是否正确");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "登录失败");
+                throw;
+            }
         }
     }
 }
