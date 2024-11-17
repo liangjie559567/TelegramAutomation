@@ -25,6 +25,7 @@ namespace TelegramAutomation
         private IWebDriver? _driver;
         private bool _disposed;
         private readonly SemaphoreSlim _downloadSemaphore;
+        private readonly InputSimulator _inputSimulator;
         private readonly IKeyboardSimulator _keyboard;
         private CancellationTokenSource? _cancellationTokenSource;
         private readonly MessageProcessor _messageProcessor;
@@ -34,8 +35,8 @@ namespace TelegramAutomation
         {
             _config = config ?? new DownloadConfiguration();
             _downloadSemaphore = new SemaphoreSlim(_config.MaxConcurrentDownloads);
-            var inputSimulator = new InputSimulator();
-            _keyboard = inputSimulator.Keyboard;
+            _inputSimulator = new InputSimulator();
+            _keyboard = _inputSimulator.Keyboard;
             _downloadManager = new DownloadManager(_config);
             _messageProcessor = new MessageProcessor(_downloadManager, _config);
             _cancellationTokenSource = new CancellationTokenSource();

@@ -27,7 +27,15 @@ jobs:
       
     - name: Build
       run: |
-        dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=false
+        dotnet build --configuration Release --no-restore
+      
+    - name: Restore with retry
+      run: |
+        dotnet restore --force
+        if ($LASTEXITCODE -ne 0) {
+          Start-Sleep -Seconds 30
+          dotnet restore --force
+        }
       
     - name: Test
       run: dotnet test --no-build --verbosity normal
