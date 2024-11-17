@@ -6,8 +6,6 @@ using System.IO;
 using System.Threading.Tasks;
 using TelegramAutomation.Commands;
 using System.Windows.Forms;
-using WinForms = System.Windows.Forms;
-using WPFApplication = System.Windows.Application;
 using OpenQA.Selenium;
 using NLog;
 
@@ -225,14 +223,14 @@ namespace TelegramAutomation.ViewModels
 
         private void BrowseFolder()
         {
-            using var dialog = new WinForms.FolderBrowserDialog
+            using var dialog = new FolderBrowserDialog
             {
                 Description = "选择下载文件保存位置",
                 UseDescriptionForTitle = true,
                 SelectedPath = SavePath
             };
 
-            if (dialog.ShowDialog() == WinForms.DialogResult.OK)
+            if (dialog.ShowDialog() == DialogResult.OK)
             {
                 SavePath = dialog.SelectedPath;
             }
