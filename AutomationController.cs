@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using WindowsInput;
+using WindowsInput.Core;
 using WindowsInput.Native;
 using System.Reflection;
 using TelegramAutomation.Models;
@@ -25,7 +25,7 @@ namespace TelegramAutomation
         private IWebDriver? _driver;
         private bool _disposed;
         private readonly SemaphoreSlim _downloadSemaphore;
-        private readonly InputSimulator _inputSimulator;
+        private readonly IInputSimulator _inputSimulator;
         private CancellationTokenSource? _cancellationTokenSource;
         private readonly MessageProcessor _messageProcessor;
         private readonly DownloadManager _downloadManager;
