@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
 using NLog;
+using TelegramAutomation.Models;
 
 namespace TelegramAutomation.Services
 {

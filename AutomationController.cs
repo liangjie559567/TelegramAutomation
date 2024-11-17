@@ -13,6 +13,7 @@ using System.Text.RegularExpressions;
 using WindowsInput;
 using WindowsInput.Native;
 using System.Reflection;
+using TelegramAutomation.Models;
 
 namespace TelegramAutomation
 {
