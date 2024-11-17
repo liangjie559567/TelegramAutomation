@@ -29,12 +29,12 @@ jobs:
     - name: Configure NuGet
       run: |
         dotnet nuget list source
-        dotnet nuget remove source nuget.org --non-interactive || true
-        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
+        dotnet nuget remove source nuget.org || echo "Source not found"
+        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org || echo "Source already exists"
         
     - name: Restore dependencies
       run: |
-        dotnet restore --force
+        dotnet restore --force --source https://api.nuget.org/v3/index.json
       
     - name: Build
       run: |
