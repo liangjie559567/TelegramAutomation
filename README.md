@@ -43,8 +43,8 @@ TelegramAutomation/
 
 ### 2. 用户界面 (UI)
 - **Views**: WPF 界面定义
-  - MainWindow.xaml: 主窗口界面（需要整理）
-  - MainWindow.xaml.cs: 主窗口代码（需要整理）
+  - MainWindow.xaml: 主窗口界面
+  - MainWindow.xaml.cs: 主窗口代码
 - **ViewModels**: MVVM 模式的视图模型实现
 - **Commands**: 命令模式实现，处理用户操作
 
