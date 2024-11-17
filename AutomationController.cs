@@ -62,20 +62,30 @@ namespace TelegramAutomation
                 options.AddUserProfilePreference("download.prompt_for_download", false);
                 options.AddUserProfilePreference("safebrowsing.enabled", true);
 
-                // 明确指定 ChromeDriver 路径
-                var driverPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                var service = ChromeDriverService.CreateDefaultService(driverPath);
-                service.HideCommandPromptWindow = true;
-
+                var driverDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                var driverPath = Path.Combine(driverDirectory, "chromedriver.exe");
+                
+                _logger.Info($"ChromeDriver 目录: {driverDirectory}");
                 _logger.Info($"ChromeDriver 路径: {driverPath}");
                 
+                if (!File.Exists(driverPath))
+                {
+                    throw new FileNotFoundException($"ChromeDriver 未找到: {driverPath}");
+                }
+
+                var service = ChromeDriverService.CreateDefaultService(driverDirectory);
+                service.HideCommandPromptWindow = true;
+
                 for (int i = 0; i < 3; i++)
                 {
                     try
                     {
-                        _driver = new ChromeDriver(service, options);
-                        _driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(30);
-                        _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+                        await Task.Run(() => 
+                        {
+                            _driver = new ChromeDriver(service, options);
+                            _driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(30);
+                            _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+                        });
                         _logger.Info("浏览器初始化成功");
                         break;
                     }
@@ -84,8 +94,8 @@ namespace TelegramAutomation
                         _logger.Warn($"尝试初始化浏览器失败 ({i + 1}/3): {ex.Message}");
                         if (i == 2) 
                         {
-                            _logger.Error($"ChromeDriver 路径: {driverPath}");
-                            _logger.Error($"ChromeDriver 是否存在: {File.Exists(Path.Combine(driverPath, "chromedriver.exe"))}");
+                            _logger.Error($"ChromeDriver 目录: {driverDirectory}");
+                            _logger.Error($"ChromeDriver 是否存在: {File.Exists(driverPath)}");
                             throw;
                         }
                         await Task.Delay(1000);
@@ -360,25 +370,24 @@ namespace TelegramAutomation
             {
                 if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
                 
-                await Task.Run(() => _driver.Navigate().GoToUrl(channelUrl));
-                progress.Report("已打开频道页面");
-                
-                Directory.CreateDirectory(savePath);
-                
-                var messages = await Task.Run(() => _driver.FindElements(By.CssSelector(".message")));
-                foreach (var message in messages)
+                await Task.Run(async () => 
                 {
-                    if (cancellationToken.IsCancellationRequested)
+                    await _driver.Navigate().GoToUrlAsync(channelUrl);
+                    var messages = _driver.FindElements(By.CssSelector(".message"));
+                    foreach (var message in messages)
                     {
-                        progress.Report("操作已取消");
-                        return;
-                    }
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            progress.Report("操作已取消");
+                            return;
+                        }
 
-                    var messageId = await Task.Run(() => message.GetAttribute("data-message-id"));
-                    var messageFolder = Path.Combine(savePath, messageId);
-                    
-                    await _messageProcessor.ProcessMessage(message, messageFolder, progress, cancellationToken);
-                }
+                        var messageId = message.GetAttribute("data-message-id");
+                        var messageFolder = Path.Combine(savePath, messageId);
+                        
+                        await _messageProcessor.ProcessMessage(message, messageFolder, progress, cancellationToken);
+                    }
+                }, cancellationToken);
                 
                 progress.Report("自动化任务完成");
             }
