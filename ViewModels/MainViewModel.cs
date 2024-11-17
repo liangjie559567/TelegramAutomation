@@ -119,6 +119,18 @@ namespace TelegramAutomation.ViewModels
             }
         }
 
+        public bool IsRequestingCode
+        {
+            get => _isRequestingCode;
+            private set => SetProperty(ref _isRequestingCode, value);
+        }
+
+        public bool IsLoggingIn
+        {
+            get => _isLoggingIn;
+            private set => SetProperty(ref _isLoggingIn, value);
+        }
+
         public ICommand StartCommand { get; }
         public ICommand StopCommand { get; }
         public ICommand BrowseFolderCommand { get; }

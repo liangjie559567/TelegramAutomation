@@ -23,11 +23,13 @@ namespace TelegramAutomation
         private IWebDriver? _driver;
         private bool _disposed;
         private readonly SemaphoreSlim _downloadSemaphore;
+        private readonly InputSimulator _inputSimulator;
 
         public AutomationController(DownloadConfiguration? config = null)
         {
             _config = config ?? new DownloadConfiguration();
             _downloadSemaphore = new SemaphoreSlim(_config.MaxConcurrentDownloads);
+            _inputSimulator = new InputSimulator();
         }
 
         public async Task InitializeBrowser()
@@ -103,7 +105,51 @@ namespace TelegramAutomation
             return await Task.Run(() => wait.Until(d => d.FindElement(by)));
         }
 
-        // 其他方法...
+        public async Task StartAutomation(string channelUrl, string savePath, 
+            IProgress<string> progress, CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
+                
+                await _driver.Navigate().GoToUrlAsync(channelUrl);
+                progress.Report("已打开频道页面");
+                
+                // 处理消息下载
+                var messageProcessor = new MessageProcessor(
+                    new DownloadManager(_config), 
+                    _config
+                );
+
+                // 实现消息处理逻辑
+                // ...
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "自动化处理失败");
+                throw;
+            }
+        }
+
+        public void Stop()
+        {
+            _cancellationTokenSource?.Cancel();
+            CleanupWebDriver();
+        }
+
+        private void CleanupWebDriver()
+        {
+            try
+            {
+                _driver?.Quit();
+                _driver?.Dispose();
+                _driver = null;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "清理 WebDriver 时出错");
+            }
+        }
 
         public void Dispose()
         {
