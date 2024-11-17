@@ -65,18 +65,31 @@ namespace TelegramAutomation
                 options.AddUserProfilePreference("download.prompt_for_download", false);
                 options.AddUserProfilePreference("safebrowsing.enabled", true);
 
-                var driverDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                var driverPath = Path.Combine(driverDirectory, "chromedriver.exe");
-                
-                _logger.Info($"ChromeDriver 目录: {driverDirectory}");
-                _logger.Info($"ChromeDriver 路径: {driverPath}");
-                
-                if (!File.Exists(driverPath))
+                var possiblePaths = new[]
                 {
-                    throw new FileNotFoundException($"ChromeDriver 未找到: {driverPath}");
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "chromedriver.exe"),
+                    Path.Combine(Environment.CurrentDirectory, "chromedriver.exe"),
+                    Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "chromedriver.exe")
+                };
+
+                string? driverPath = null;
+                foreach (var path in possiblePaths)
+                {
+                    _logger.Info($"检查 ChromeDriver 路径: {path}");
+                    if (File.Exists(path))
+                    {
+                        driverPath = path;
+                        _logger.Info($"找到 ChromeDriver: {path}");
+                        break;
+                    }
                 }
 
-                var service = ChromeDriverService.CreateDefaultService(driverDirectory);
+                if (driverPath == null)
+                {
+                    throw new FileNotFoundException("ChromeDriver 未找到，请确保 chromedriver.exe 在应用程序目录中");
+                }
+
+                var service = ChromeDriverService.CreateDefaultService(Path.GetDirectoryName(driverPath));
                 service.HideCommandPromptWindow = true;
 
                 for (int i = 0; i < 3; i++)
@@ -97,7 +110,7 @@ namespace TelegramAutomation
                         _logger.Warn($"尝试初始化浏览器失败 ({i + 1}/3): {ex.Message}");
                         if (i == 2) 
                         {
-                            _logger.Error($"ChromeDriver 目录: {driverDirectory}");
+                            _logger.Error($"ChromeDriver 目录: {service.DriverServicePath}");
                             _logger.Error($"ChromeDriver 是否存在: {File.Exists(driverPath)}");
                             throw;
                         }
@@ -281,7 +294,7 @@ namespace TelegramAutomation
             catch (WebDriverException ex)
             {
                 _logger.Error(ex, "浏览器操作失败");
-                throw new Exception("浏览器操作失败，请检���网络连接", ex);
+                throw new Exception("浏览器操作失败，请检查网络连接", ex);
             }
             catch (Exception ex)
             {
