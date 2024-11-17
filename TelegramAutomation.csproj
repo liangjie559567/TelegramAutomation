@@ -4,7 +4,7 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.2.6</Version>
+    <Version>1.2.7</Version>
     <Authors>liangjie559567</Authors>
     <Company>TelegramAutomation</Company>
     <Description>Telegram频道自动化下载工具</Description>
@@ -16,13 +16,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="InputSimulator" Version="1.0.4" />
+    <PackageReference Include="WindowsInput" Version="6.4.1" />
     <PackageReference Include="NLog" Version="5.2.8" />
     <PackageReference Include="Selenium.WebDriver" Version="4.18.1" />
     <PackageReference Include="Selenium.Support" Version="4.18.1" />
-    <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="122.0.6261.94" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
-    <PackageReference Include="System.Text.Json" Version="7.0.0" />
+    <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="122.0.6261.5700" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+    <PackageReference Include="System.Text.Json" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,11 +34,24 @@
     </None>
   </ItemGroup>
 
-  <!-- 确保 Chrome Driver 被复制到输出目录 -->
   <Target Name="CopyChromeDriver" AfterTargets="Build">
     <PropertyGroup>
-      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\122.0.6261.94\driver\win32\chromedriver.exe</ChromeDriverPath>
+      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\122.0.6261.5700\driver\win32\chromedriver.exe</ChromeDriverPath>
     </PropertyGroup>
-    <Copy SourceFiles="$(ChromeDriverPath)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy 
+      SourceFiles="$(ChromeDriverPath)" 
+      DestinationFolder="$(OutDir)" 
+      SkipUnchangedFiles="true" 
+      Condition="Exists('$(ChromeDriverPath)')"
+    />
+    <Message 
+      Text="ChromeDriver copied successfully from: $(ChromeDriverPath)" 
+      Importance="high" 
+      Condition="Exists('$(ChromeDriverPath)')"
+    />
+    <Warning 
+      Text="ChromeDriver not found at: $(ChromeDriverPath)" 
+      Condition="!Exists('$(ChromeDriverPath)')"
+    />
   </Target>
 </Project> 

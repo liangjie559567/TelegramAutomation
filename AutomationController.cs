@@ -44,8 +44,13 @@ namespace TelegramAutomation
             try
             {
                 var options = new ChromeOptions();
-                options.AddArgument("--start-maximized");
-                options.AddArgument("--disable-notifications");
+                options.AddArgument("--disable-gpu");
+                options.AddArgument("--no-sandbox");
+                options.AddArgument("--disable-dev-shm-usage");
+                options.AddArgument("--disable-web-security");
+                options.AddArgument("--allow-running-insecure-content");
+                
+                options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
                 
                 var downloadPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
@@ -55,8 +60,28 @@ namespace TelegramAutomation
                 
                 options.AddUserProfilePreference("download.default_directory", downloadPath);
                 options.AddUserProfilePreference("download.prompt_for_download", false);
+                options.AddUserProfilePreference("safebrowsing.enabled", true);
                 
-                await Task.Run(() => _driver = new ChromeDriver(options));
+                var service = ChromeDriverService.CreateDefaultService();
+                service.HideCommandPromptWindow = true;
+                
+                for (int i = 0; i < 3; i++)
+                {
+                    try
+                    {
+                        _driver = new ChromeDriver(service, options);
+                        _driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(30);
+                        _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+                        break;
+                    }
+                    catch (WebDriverException ex)
+                    {
+                        _logger.Warn($"尝试初始化浏览器失败 ({i + 1}/3): {ex.Message}");
+                        if (i == 2) throw;
+                        await Task.Delay(1000);
+                    }
+                }
+                
                 _logger.Info("浏览器初始化成功");
             }
             catch (Exception ex)
@@ -69,8 +94,22 @@ namespace TelegramAutomation
         public async Task NavigateToTelegram()
         {
             if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
-            await Task.Run(() => _driver.Navigate().GoToUrl("https://web.telegram.org/"));
-            _logger.Info("导航到Telegram网页");
+            
+            try
+            {
+                await Task.Run(() => 
+                {
+                    _driver.Navigate().GoToUrl("https://web.telegram.org/");
+                    var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(30));
+                    wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
+                });
+                _logger.Info("导航到Telegram网页成功");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "导航到Telegram网页失败");
+                throw;
+            }
         }
 
         public async Task RequestVerificationCode(string phoneNumber)
@@ -79,22 +118,56 @@ namespace TelegramAutomation
             {
                 if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
 
-                // 等待手机号码输入框出现
-                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(10));
-                var phoneInput = wait.Until(d => d.FindElement(By.CssSelector("input[type='tel']")));
+                // 等待登录页面加载完成
+                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(30));
+                wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
+
+                // 等待手机号输入框出现
+                var phoneInput = await RetryOperation(async () =>
+                {
+                    var input = wait.Until(d => d.FindElement(By.CssSelector("input[type='tel']")));
+                    if (!input.Displayed || !input.Enabled)
+                        throw new ElementNotInteractableException("手机号输入框不可交互");
+                    return input;
+                }, maxRetries: 3);
 
                 // 清除并输入手机号码
                 phoneInput.Clear();
-                SimulateKeyPress(phoneNumber);
-                await Task.Delay(500);
+                await Task.Delay(500); // 等待清除完成
+                
+                // 模拟人工输入
+                foreach (var c in phoneNumber)
+                {
+                    SimulateKeyPress(c.ToString());
+                    await Task.Delay(Random.Shared.Next(50, 150)); // 随机延迟
+                }
 
-                // 点击下一步按钮
-                var nextButton = _driver.FindElement(By.CssSelector("button.btn-primary"));
+                // 等待并点击下一步按钮
+                var nextButton = await RetryOperation(async () =>
+                {
+                    var button = wait.Until(d => d.FindElement(By.CssSelector("button[type='submit']")));
+                    if (!button.Displayed || !button.Enabled)
+                        throw new ElementNotInteractableException("下一步按钮不可点击");
+                    return button;
+                }, maxRetries: 3);
+
                 nextButton.Click();
-
-                // 等待验证码发送
-                await Task.Delay(_config.LoginWaitTime);
-                _logger.Info($"已发送验证码到 {phoneNumber}");
+                
+                // 验证是否成功发送验证码
+                try
+                {
+                    wait.Until(d => d.FindElement(By.CssSelector("input[type='text']")));
+                    _logger.Info($"已成功发送验证码到 {phoneNumber}");
+                }
+                catch (WebDriverTimeoutException)
+                {
+                    throw new Exception("验证码发送失败，请检查手机号码是否正确");
+                }
+            }
+            catch (WebDriverException ex)
+            {
+                _logger.Error(ex, "浏览器操作失败");
+                throw new Exception("浏览器操作失败，请检查网络连接", ex);
             }
             catch (Exception ex)
             {
@@ -109,17 +182,37 @@ namespace TelegramAutomation
             {
                 if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
 
-                // 等待验证码输入框出现
-                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(10));
-                var codeInput = wait.Until(d => d.FindElement(By.CssSelector("input[type='text']")));
+                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(30));
 
-                // 输入验证码
+                // 等待验证码输入框出现
+                var codeInput = await RetryOperation(async () =>
+                {
+                    var input = wait.Until(d => d.FindElement(By.CssSelector("input[type='text']")));
+                    if (!input.Displayed || !input.Enabled)
+                        throw new ElementNotInteractableException("验证码输入框不可交互");
+                    return input;
+                }, maxRetries: 3);
+
+                // 清除并输入验证码
                 codeInput.Clear();
-                SimulateKeyPress(verificationCode);
                 await Task.Delay(500);
 
-                // 点击登录按钮
-                var loginButton = _driver.FindElement(By.CssSelector("button.btn-primary"));
+                // 模拟人工输入验证码
+                foreach (var c in verificationCode)
+                {
+                    SimulateKeyPress(c.ToString());
+                    await Task.Delay(Random.Shared.Next(50, 150));
+                }
+
+                // 等待登录按钮可点击
+                var loginButton = await RetryOperation(async () =>
+                {
+                    var button = wait.Until(d => d.FindElement(By.CssSelector("button[type='submit']")));
+                    if (!button.Displayed || !button.Enabled)
+                        throw new ElementNotInteractableException("登录按钮不可点击");
+                    return button;
+                }, maxRetries: 3);
+
                 loginButton.Click();
 
                 // 等待登录完成
@@ -128,19 +221,69 @@ namespace TelegramAutomation
                 // 验证登录状态
                 try
                 {
-                    wait.Until(d => d.FindElement(By.CssSelector(".chat-list")));
+                    // 检查多个可能的登录成功标志
+                    var isLoggedIn = await RetryOperation(async () =>
+                    {
+                        try
+                        {
+                            // 尝试查找聊天列表
+                            wait.Until(d => d.FindElement(By.CssSelector(".chat-list")));
+                            return true;
+                        }
+                        catch
+                        {
+                            try
+                            {
+                                // 尝试查找其他登录成功标志
+                                wait.Until(d => d.FindElement(By.CssSelector(".messages-container")));
+                                return true;
+                            }
+                            catch
+                            {
+                                return false;
+                            }
+                        }
+                    }, maxRetries: 3);
+
+                    if (!isLoggedIn)
+                    {
+                        throw new Exception("登录失败，请检查验证码是否正确");
+                    }
+
                     _logger.Info("登录成功");
                 }
                 catch (WebDriverTimeoutException)
                 {
-                    throw new Exception("登录失败，请检查验证码是否正确");
+                    throw new Exception("登录超时，请重试");
                 }
+            }
+            catch (WebDriverException ex)
+            {
+                _logger.Error(ex, "浏览器操作失败");
+                throw new Exception("浏览器操作失败，请检查网络连接", ex);
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "登录失败");
                 throw;
             }
+        }
+
+        private async Task<T> RetryOperation<T>(Func<Task<T>> operation, int maxRetries = 3)
+        {
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    return await operation();
+                }
+                catch (Exception ex) when (i < maxRetries - 1)
+                {
+                    _logger.Warn($"操作失败，准备重试 ({i + 1}/{maxRetries}): {ex.Message}");
+                    await Task.Delay(1000 * (i + 1)); // 指数退避
+                }
+            }
+            throw new Exception($"操作失败，已重试 {maxRetries} 次");
         }
 
         private void SimulateKeyPress(string text)
