@@ -22,10 +22,17 @@ jobs:
       with:
         dotnet-version: 6.0.x
         
+    - name: Clear NuGet Cache
+      run: |
+        dotnet nuget locals all --clear
+        
+    - name: Add NuGet Source
+      run: |
+        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
+        
     - name: Restore dependencies
       run: |
-        dotnet restore
-        dotnet nuget locals all --clear
+        dotnet restore --force
       
     - name: Build
       run: |
