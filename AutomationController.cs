@@ -27,13 +27,16 @@ namespace TelegramAutomation
         private readonly SemaphoreSlim _downloadSemaphore;
         private readonly InputSimulator _inputSimulator;
         private CancellationTokenSource? _cancellationTokenSource;
+        private readonly MessageProcessor _messageProcessor;
+        private readonly DownloadManager _downloadManager;
 
         public AutomationController(DownloadConfiguration? config = null)
         {
             _config = config ?? new DownloadConfiguration();
             _downloadSemaphore = new SemaphoreSlim(_config.MaxConcurrentDownloads);
             _inputSimulator = new InputSimulator();
-            _cancellationTokenSource = new CancellationTokenSource();
+            _downloadManager = new DownloadManager(_config);
+            _messageProcessor = new MessageProcessor(_downloadManager, _config);
         }
 
         public async Task InitializeBrowser()
@@ -54,6 +57,7 @@ namespace TelegramAutomation
                 options.AddUserProfilePreference("download.prompt_for_download", false);
                 
                 await Task.Run(() => _driver = new ChromeDriver(options));
+                _logger.Info("浏览器初始化成功");
             }
             catch (Exception ex)
             {
@@ -66,133 +70,7 @@ namespace TelegramAutomation
         {
             if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
             await Task.Run(() => _driver.Navigate().GoToUrl("https://web.telegram.org/"));
-        }
-
-        public async Task StartAutomation(string channelUrl, string savePath, 
-            IProgress<string> progress, CancellationToken cancellationToken)
-        {
-            try
-            {
-                if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
-                
-                await Task.Run(() => _driver.Navigate().GoToUrl(channelUrl));
-                progress.Report("已打开频道页面");
-                
-                // 处理消息下载
-                var messageProcessor = new MessageProcessor(
-                    new DownloadManager(_config), 
-                    _config
-                );
-
-                // 实现消息处理逻辑
-                var messages = await Task.Run(() => 
-                    _driver.FindElements(By.CssSelector(".message")).ToList(),
-                    cancellationToken
-                );
-
-                foreach (var message in messages)
-                {
-                    if (cancellationToken.IsCancellationRequested) break;
-
-                    var messageId = message.GetAttribute("data-message-id");
-                    var messageFolder = Path.Combine(savePath, messageId);
-
-                    await messageProcessor.ProcessMessage(
-                        message,
-                        messageFolder,
-                        progress,
-                        cancellationToken
-                    );
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "自动化处理失败");
-                throw;
-            }
-        }
-
-        public void Stop()
-        {
-            _cancellationTokenSource?.Cancel();
-            CleanupWebDriver();
-        }
-
-        private void CleanupWebDriver()
-        {
-            try
-            {
-                _driver?.Quit();
-                _driver?.Dispose();
-                _driver = null;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "清理 WebDriver 时出错");
-            }
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposed)
-            {
-                if (disposing)
-                {
-                    CleanupWebDriver();
-                }
-                _disposed = true;
-            }
-        }
-
-        private async Task<T> RetryOperation<T>(Func<Task<T>> operation, int maxRetries = 3)
-        {
-            for (int i = 0; i < maxRetries; i++)
-            {
-                try
-                {
-                    return await operation();
-                }
-                catch (Exception ex)
-                {
-                    if (i == maxRetries - 1) throw;
-                    _logger.Warn($"操作失败，准备重试 ({i + 1}/{maxRetries}): {ex.Message}");
-                    await Task.Delay(1000 * (i + 1)); // 指数退避
-                }
-            }
-            throw new Exception("重试次数超过最大限制");
-        }
-
-        private void SimulateKeyPress(string text)
-        {
-            foreach (char c in text)
-            {
-                _inputSimulator.Keyboard.TextEntry(c);
-            }
-        }
-
-        private void SimulateEnterKey()
-        {
-            _inputSimulator.Keyboard.KeyPress(VirtualKeyCode.RETURN);
-        }
-
-        private void SimulateControlC()
-        {
-            _inputSimulator.Keyboard.ModifiedKeyStroke(
-                VirtualKeyCode.CONTROL, 
-                VirtualKeyCode.VK_C);
-        }
-
-        private void SimulateControlV()
-        {
-            _inputSimulator.Keyboard.ModifiedKeyStroke(
-                VirtualKeyCode.CONTROL, 
-                VirtualKeyCode.VK_V);
+            _logger.Info("导航到Telegram网页");
         }
 
         public async Task RequestVerificationCode(string phoneNumber)
@@ -216,6 +94,7 @@ namespace TelegramAutomation
 
                 // 等待验证码发送
                 await Task.Delay(_config.LoginWaitTime);
+                _logger.Info($"已发送验证码到 {phoneNumber}");
             }
             catch (Exception ex)
             {
@@ -250,6 +129,7 @@ namespace TelegramAutomation
                 try
                 {
                     wait.Until(d => d.FindElement(By.CssSelector(".chat-list")));
+                    _logger.Info("登录成功");
                 }
                 catch (WebDriverTimeoutException)
                 {
@@ -260,6 +140,71 @@ namespace TelegramAutomation
             {
                 _logger.Error(ex, "登录失败");
                 throw;
+            }
+        }
+
+        private void SimulateKeyPress(string text)
+        {
+            foreach (var c in text)
+            {
+                _inputSimulator.Keyboard.TextEntry(c.ToString());
+                Thread.Sleep(50); // 模拟人工输入的延迟
+            }
+        }
+
+        public async Task StartAutomation(string channelUrl, string savePath, 
+            IProgress<string> progress, CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
+                
+                await Task.Run(() => _driver.Navigate().GoToUrl(channelUrl));
+                progress.Report("已打开频道页面");
+                
+                // 创建保存目录
+                Directory.CreateDirectory(savePath);
+                
+                // 处理消息
+                var messages = _driver.FindElements(By.CssSelector(".message"));
+                foreach (var message in messages)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        progress.Report("操作已取消");
+                        return;
+                    }
+
+                    var messageId = message.GetAttribute("data-message-id");
+                    var messageFolder = Path.Combine(savePath, messageId);
+                    
+                    await _messageProcessor.ProcessMessage(message, messageFolder, progress, cancellationToken);
+                }
+                
+                progress.Report("自动化任务完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "自动化任务失败");
+                throw;
+            }
+        }
+
+        public void Stop()
+        {
+            _cancellationTokenSource?.Cancel();
+            _logger.Info("已停止自动化任务");
+        }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                _driver?.Quit();
+                _driver?.Dispose();
+                _downloadSemaphore.Dispose();
+                _cancellationTokenSource?.Dispose();
+                _disposed = true;
             }
         }
     }

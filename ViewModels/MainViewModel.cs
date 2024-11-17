@@ -289,11 +289,13 @@ namespace TelegramAutomation.ViewModels
                 IsLoggedIn = true;
                 
                 AddLog("登录成功");
+                Status = "已登录";
             }
             catch (Exception ex)
             {
                 AddLog($"登录失败: {ex.Message}");
                 _logger.Error(ex, "登录失败");
+                Status = "登录失败";
             }
             finally
             {

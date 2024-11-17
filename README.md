@@ -15,6 +15,9 @@ TelegramAutomation/
 │   ├── DownloadManager.cs      # 下载管理器
 │   └── MessageProcessor.cs      # 消息处理器
 │
+├── Themes/                      # 主题资源
+│   └── Default.xaml            # 默认主题样式
+│
 ├── ViewModels/                  # MVVM 视图模型
 │   ├── MainViewModel.cs        # 主窗口视图模型
 │   └── ViewModelBase.cs        # 视图模型基类
@@ -23,6 +26,9 @@ TelegramAutomation/
 │   ├── MainWindow.xaml         # 主窗口界面
 │   └── MainWindow.xaml.cs      # 主窗口代码
 │
+├── Resources/                   # 资源文件
+│   └── app.ico                 # 应用程序图标
+│
 ├── AutomationController.cs      # 自动化控制器
 ├── App.xaml                     # 应用程序定义
 ├── App.xaml.cs                 # 应用程序入口
@@ -30,12 +36,6 @@ TelegramAutomation/
 ├── appsettings.json           # 应用程序配置文件
 └── TelegramAutomation.csproj  # 项目文件
 ```
-
-## 待办事项
-
-1. 移动文件到正确位置：
-   - 将根目录的 MainWindow.xaml 和 MainWindow.xaml.cs 移动到 Views 目录
-   - 更新相关命名空间和引用
 
 ## 模块说明
 
