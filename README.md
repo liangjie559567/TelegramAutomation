@@ -1,136 +1,119 @@
 # Telegram 自动化下载工具
 
-这是一个基于 .NET 6 开发的 Windows 桌面应用程序，用于自动化下载 Telegram 网页版频道中的消息内容和文件。
-
-## 功能特点
-
-- ✨ Telegram Web 账户登录管理
-  - 支持手机号码验证码登录
-  - 自动保存登录状态
-  - 登录状态实时检测
-
-- 🚀 自动化下载功能
-  - 自动化浏览 Telegram 网页版频道
-  - 智能提取消息文本内容
-  - 自动下载压缩包文件
-  - 支持多种压缩格式 (.zip、.rar、.7z、.tar、.gz)
-  - 自动保存消息中的链接
-  - 按消息 ID 分类存储内容
-
-- 💡 智能任务管理
-  - 实时显示下载进度
-  - 详细的操作日志记录
-  - 支持暂停/继续下载
-  - 自定义下载保存路径
-  - 智能失败重试机制
-  - 多线程并发下载
-
-- 🛡️ 稳定性保障
-  - 完善的错误处理
-  - 自动重试机制
-  - 断点续传支持
-  - 资源占用优化
-  - 内存使用优化
-
-## 系统要求
-
-- Windows 10/11
-- .NET 6.0 Runtime
-- Google Chrome 浏览器 (最新版本)
-- 稳定的网络连接
-- 足够的磁盘空间
-
-## 快速开始
-
-1. 下载并安装 [.NET 6.0 Runtime](https://dotnet.microsoft.com/download/dotnet/6.0)
-2. 确保已安装最新版本的 Google Chrome
-3. 从 [Releases](https://github.com/yourusername/TelegramAutomation/releases) 下载最新版本
-4. 解压到任意目录并运行 TelegramAutomation.exe
-
-## 使用说明
-
-1. 启动程序
-2. 输入手机号码并获取验证码
-3. 输入验证码完成登录
-4. 输入要下载的 Telegram 频道 URL
-5. 选择文件保存位置
-6. 点击"开始"按钮开始下载
-7. 可随时点击"停止"按钮暂停任务
-
-## 文件结构
-
-下载的内容按以下结构保存：
+## 项目结构
 
 ```
-TelegramDownloads/
-├── 消息ID1/
-│   ├── message.txt      # 消息文本内容
-│   ├── links.txt        # 消息中的链接
-│   └── 下载的文件.zip    # 下载的压缩包文件
-├── 消息ID2/
-│   ├── message.txt
-│   ├── links.txt
-│   └── 下载的文件.rar
-└── logs/                # 程序运行日志
-    └── 2024-03-14.log
+TelegramAutomation/
+├── Commands/                    # 命令模式实现
+│   └── RelayCommand.cs         # 通用命令实现类
+│
+├── Models/                      # 数据模型
+│   ├── AppSettings.cs          # 应用程序配置
+│   └── DownloadConfiguration.cs # 下载配置
+│
+├── Services/                    # 业务服务
+│   ├── DownloadManager.cs      # 下载管理器
+│   └── MessageProcessor.cs      # 消息处理器
+│
+├── ViewModels/                  # MVVM 视图模型
+│   ├── MainViewModel.cs        # 主窗口视图模型
+│   └── ViewModelBase.cs        # 视图模型基类
+│
+├── Views/                       # 视图层
+│   └── MainWindow.xaml         # 主窗口界面
+│
+├── AutomationController.cs      # 自动化控制器
+├── App.xaml                     # 应用程序定义
+├── App.xaml.cs                 # 应用程序入口
+│
+├── nlog.config                 # NLog 配置文件
+├── appsettings.json           # 应用程序配置文件
+└── TelegramAutomation.csproj  # 项目文件
 ```
 
-## 部署方法
+## 模块说明
 
-### 方法一：从源码编译
+### 1. 核心模块 (Core)
+- **AutomationController**: 自动化控制核心，管理浏览器操作和登录流程
+- **Models**: 定义数据结构和配置模型
+- **Services**: 提供下载和消息处理服务
 
-1. 克隆仓库
-```
-git clone https://github.com/liangjie559567/TelegramAutomation.git
-```
+### 2. 用户界面 (UI)
+- **Views**: WPF 界面定义
+- **ViewModels**: MVVM 模式的视图模型实现
+- **Commands**: 命令模式实现，处理用户操作
 
-2. 安装依赖
-```
-dotnet restore
-```
+### 3. 配置管理
+- **AppSettings**: 应用程序配置管理
+- **DownloadConfiguration**: 下载相关配置
+- **nlog.config**: 日志配置
 
-3. 编译项目
-```
-dotnet build --configuration Release
-```
+### 4. 功能模块
 
-4. 运行程序
-```
-dotnet run --project TelegramAutomation
-```
+#### 4.1 登录管理
+- 手机号码验证
+- 验证码处理
+- 登录状态维护
 
-### 方法二：直接使用发布版本
+#### 4.2 下载管理
+- 多线程下载
+- 进度跟踪
+- 断点续传
+- 文件分类存储
 
-1. 从 [Releases](https://github.com/liangjie559567/TelegramAutomation/releases) 页面下载最新版本
-2. 解压文件
-3. 运行 TelegramAutomation.exe
+#### 4.3 消息处理
+- 消息文本提取
+- 链接提取
+- 文件识别和下载
 
-## 注意事项
+#### 4.4 自动化控制
+- 浏览器操作
+- 页面导航
+- 元素定位和交互
 
-- 首次使用时需要手动登录 Telegram
-- 确保有足够的磁盘空间存储下载的文件
-- 下载大文件时请保持网络稳定
-- 程序会自动创建必要的文件夹
-- 日志文件保存在"我的文档/TelegramAutomation/logs"目录下
+### 5. 工具和辅助
 
-## 许可证
+#### 5.1 日志系统
+- 操作日志
+- 错误日志
+- 下载记录
 
-本项目采用 MIT 许可证，详见 [LICENSE](LICENSE) 文件。
+#### 5.2 异常处理
+- 全局异常捕获
+- 重试机制
+- 错误恢复
 
-## 更新日志
+## 技术栈
 
-详见 [CHANGELOG.md](CHANGELOG.md) 文件。
+- **.NET 6.0**: 基础框架
+- **WPF**: 用户界面
+- **Selenium**: 网页自动化
+- **NLog**: 日志管理
+- **InputSimulator**: 输入模拟
+- **ChromeDriver**: 浏览器控制
 
-## 贡献指南
+## 设计模式
 
-欢迎提交 Issue 和 Pull Request 来帮助改进这个项目。
+- **MVVM**: 界面架构模式
+- **命令模式**: 用户操作处理
+- **依赖注入**: 模块解耦
+- **观察者模式**: 状态更新
+- **工厂模式**: 对象创建
 
-1. Fork 本仓库
-2. 创建你的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交你的更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开一个 Pull Request
+## 扩展性
 
-## 问题反馈
+项目采用模块化设计，便于扩展：
+1. 可以添加新的下载处理器
+2. 可以扩展消息处理方式
+3. 可以添加新的自动化功能
+4. 可以自定义配置项
 
-如果你发现任何问题或有改进建议，请在 [Issues](https://github.com/liangjie559567/TelegramAutomation/issues) 页面提交。
+## 性能优化
+
+1. 使用异步操作
+2. 实现并发下载
+3. 资源自动释放
+4. 内存管理优化
+5. 日志性能优化
+
+需要我详细解释任何部分吗？

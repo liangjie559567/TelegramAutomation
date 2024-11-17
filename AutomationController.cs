@@ -14,6 +14,7 @@ using WindowsInput;
 using WindowsInput.Native;
 using System.Reflection;
 using TelegramAutomation.Models;
+using TelegramAutomation.Services;
 
 namespace TelegramAutomation
 {
@@ -25,6 +26,7 @@ namespace TelegramAutomation
         private bool _disposed;
         private readonly SemaphoreSlim _downloadSemaphore;
         private readonly InputSimulator _inputSimulator;
+        private CancellationTokenSource? _cancellationTokenSource;
 
         public AutomationController(DownloadConfiguration? config = null)
         {
@@ -35,75 +37,34 @@ namespace TelegramAutomation
 
         public async Task InitializeBrowser()
         {
-            var options = new ChromeOptions();
-            options.AddArgument("--start-maximized");
-            options.AddArgument("--disable-notifications");
-            
-            // 设置下载选项
-            var downloadPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "TelegramDownloads"
-            );
-            Directory.CreateDirectory(downloadPath);
-            
-            options.AddUserProfilePreference("download.default_directory", downloadPath);
-            options.AddUserProfilePreference("download.prompt_for_download", false);
-            
-            _driver = new ChromeDriver(options);
+            try
+            {
+                var options = new ChromeOptions();
+                options.AddArgument("--start-maximized");
+                options.AddArgument("--disable-notifications");
+                
+                var downloadPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "TelegramDownloads"
+                );
+                Directory.CreateDirectory(downloadPath);
+                
+                options.AddUserProfilePreference("download.default_directory", downloadPath);
+                options.AddUserProfilePreference("download.prompt_for_download", false);
+                
+                await Task.Run(() => _driver = new ChromeDriver(options));
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "初始化浏览器失败");
+                throw;
+            }
         }
 
         public async Task NavigateToTelegram()
         {
             if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
             await Task.Run(() => _driver.Navigate().GoToUrl("https://web.telegram.org/"));
-        }
-
-        public async Task RequestVerificationCode(string phoneNumber)
-        {
-            if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
-
-            // 等待手机号输入框出现
-            var phoneInput = await WaitForElement(By.CssSelector("input[name='phone']"));
-            phoneInput.Clear();
-            phoneInput.SendKeys(phoneNumber);
-
-            // 点击下一步按钮
-            var nextButton = await WaitForElement(By.CssSelector("button[type='submit']"));
-            nextButton.Click();
-
-            // 等待验证码发送
-            await Task.Delay(_config.LoginWaitTime);
-        }
-
-        public async Task Login(string phoneNumber, string verificationCode)
-        {
-            if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
-
-            // 等待验证码输入框出现
-            var codeInput = await WaitForElement(By.CssSelector("input[name='code']"));
-            codeInput.Clear();
-            codeInput.SendKeys(verificationCode);
-
-            // 等待登录完成
-            await Task.Delay(_config.LoginWaitTime);
-            
-            // 验证登录状态
-            try
-            {
-                await WaitForElement(By.CssSelector(".chat-list"));
-            }
-            catch (Exception)
-            {
-                throw new Exception("登录失败，请检查验证码是否正确");
-            }
-        }
-
-        private async Task<IWebElement> WaitForElement(By by, int timeoutSeconds = 30)
-        {
-            if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
-
-            var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
-            return await Task.Run(() => wait.Until(d => d.FindElement(by)));
         }
 
         public async Task StartAutomation(string channelUrl, string savePath, 
@@ -113,7 +74,7 @@ namespace TelegramAutomation
             {
                 if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
                 
-                await _driver.Navigate().GoToUrlAsync(channelUrl);
+                await Task.Run(() => _driver.Navigate().GoToUrl(channelUrl));
                 progress.Report("已打开频道页面");
                 
                 // 处理消息下载
@@ -123,7 +84,25 @@ namespace TelegramAutomation
                 );
 
                 // 实现消息处理逻辑
-                // ...
+                var messages = await Task.Run(() => 
+                    _driver.FindElements(By.CssSelector(".message")).ToList(),
+                    cancellationToken
+                );
+
+                foreach (var message in messages)
+                {
+                    if (cancellationToken.IsCancellationRequested) break;
+
+                    var messageId = message.GetAttribute("data-message-id");
+                    var messageFolder = Path.Combine(savePath, messageId);
+
+                    await messageProcessor.ProcessMessage(
+                        message,
+                        messageFolder,
+                        progress,
+                        cancellationToken
+                    );
+                }
             }
             catch (Exception ex)
             {
