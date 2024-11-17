@@ -15,6 +15,7 @@ using System.Reflection;
 using TelegramAutomation.Models;
 using TelegramAutomation.Services;
 using WindowsInput.Native;
+using WindowsInput.Core;
 
 namespace TelegramAutomation
 {
@@ -25,7 +26,7 @@ namespace TelegramAutomation
         private IWebDriver? _driver;
         private bool _disposed;
         private readonly SemaphoreSlim _downloadSemaphore;
-        private readonly InputSimulator _inputSimulator;
+        private readonly IInputSimulator _inputSimulator;
         private CancellationTokenSource? _cancellationTokenSource;
         private readonly MessageProcessor _messageProcessor;
         private readonly DownloadManager _downloadManager;
