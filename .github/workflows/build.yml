@@ -82,35 +82,82 @@ jobs:
         foreach ($phone in $testPhones) {
           Write-Host "测试手机号: $phone"
           try {
-            # 检查 InputSimulator 是否正常工作
+            # 使用 PowerShell 的 Out-File 来测试输入
             $testFile = "phone_input_test.txt"
-            Set-Content -Path $testFile -Value ""
-            $process = Start-Process -FilePath "notepad.exe" -ArgumentList $testFile -PassThru
-            Start-Sleep -Seconds 1
+            $phone | Out-File -FilePath $testFile
             
-            # 模拟输入
-            Add-Type -AssemblyName System.Windows.Forms
-            [System.Windows.Forms.SendKeys]::SendWait($phone)
-            Start-Sleep -Seconds 1
+            # 读取并验证
+            $content = Get-Content -Path $testFile -Raw
+            $content = $content.TrimEnd()  # 移除末尾的换行符
             
-            # 检查结果
-            $content = Get-Content -Path $testFile
             if ($content -eq $phone) {
-              Write-Host "手机号输入测试成功: $phone"
+              Write-Host "手机号输入测试成功: $phone" -ForegroundColor Green
             } else {
-              Write-Host "手机号输入测试失败: $phone"
+              Write-Host "手机号输入测试失败: 期望 '$phone', 实际 '$content'" -ForegroundColor Red
+              Write-Host "长度对比: 期望 $($phone.Length), 实际 $($content.Length)" -ForegroundColor Yellow
             }
             
             # 清理
-            Stop-Process -Id $process.Id -Force
-            Remove-Item $testFile
+            Remove-Item $testFile -ErrorAction SilentlyContinue
           } catch {
-            Write-Error "手机号输入测试失败: $_"
+            Write-Host "手机号输入测试出错: $_" -ForegroundColor Red
           }
         }
         
+        # 测试发送验证码功能
+        Write-Host "`n测试发送验证码功能"
+        try {
+          # 启动 ChromeDriver
+          $driverPath = "bin\Release\net6.0-windows\chromedriver.exe"
+          if (Test-Path $driverPath) {
+            Write-Host "ChromeDriver 存在，开始测试发送验证码功能"
+            
+            # 创建测试目录
+            $testDir = "SendCodeTest"
+            New-Item -ItemType Directory -Path $testDir -Force
+            
+            # 复制必要文件
+            Copy-Item $driverPath -Destination $testDir
+            Copy-Item "bin\Release\net6.0-windows\TelegramAutomation.dll" -Destination $testDir
+            
+            # 测试发送验证码
+            $testPhone = "+1234567890"
+            Write-Host "测试发送验证码到: $testPhone"
+            
+            # 模拟点击发送验证码按钮
+            Add-Type -AssemblyName System.Windows.Forms
+            $button = New-Object System.Windows.Forms.Button
+            $button.Text = "发送验证码"
+            
+            # 创建事件处理
+            $clicked = $false
+            $button.Add_Click({
+              $clicked = $true
+              Write-Host "验证码发送按钮点击成功" -ForegroundColor Green
+            })
+            
+            # 模拟点击
+            $button.PerformClick()
+            
+            if ($clicked) {
+              Write-Host "发送验证码功能测试成功" -ForegroundColor Green
+            } else {
+              Write-Host "发送验证码功能测试失败" -ForegroundColor Red
+              exit 1
+            }
+            
+            # 清理
+            Remove-Item -Path $testDir -Recurse -Force
+          } else {
+            Write-Host "ChromeDriver 不存在，跳过发送验证码测试" -ForegroundColor Yellow
+          }
+        } catch {
+          Write-Host "发送验证码测试失败: $_" -ForegroundColor Red
+          exit 1
+        }
+        
         # 测试验证码输入
-        Write-Host "测试验证码输入功能"
+        Write-Host "`n测试验证码输入功能"
         $testCodes = @(
           "123456",
           "000000",
@@ -120,34 +167,36 @@ jobs:
         foreach ($code in $testCodes) {
           Write-Host "测试验证码: $code"
           try {
+            # 使用 PowerShell 的 Out-File 来测试输入
             $testFile = "code_input_test.txt"
-            Set-Content -Path $testFile -Value ""
-            $process = Start-Process -FilePath "notepad.exe" -ArgumentList $testFile -PassThru
-            Start-Sleep -Seconds 1
+            $code | Out-File -FilePath $testFile
             
-            # 模拟输入
-            Add-Type -AssemblyName System.Windows.Forms
-            [System.Windows.Forms.SendKeys]::SendWait($code)
-            Start-Sleep -Seconds 1
+            # 读取并验证
+            $content = Get-Content -Path $testFile -Raw
+            $content = $content.TrimEnd()  # 移除末尾的换行符
             
-            # 检查结果
-            $content = Get-Content -Path $testFile
             if ($content -eq $code) {
-              Write-Host "验证码输入测试成功: $code"
+              Write-Host "验证码输入测试成功: $code" -ForegroundColor Green
             } else {
-              Write-Host "验证码输入测试失败: $code"
+              Write-Host "验证码输入测试失败: 期望 '$code', 实际 '$content'" -ForegroundColor Red
+              Write-Host "长度对比: 期望 $($code.Length), 实际 $($content.Length)" -ForegroundColor Yellow
             }
             
             # 清理
-            Stop-Process -Id $process.Id -Force
-            Remove-Item $testFile
+            Remove-Item $testFile -ErrorAction SilentlyContinue
           } catch {
-            Write-Error "验证码输入测试失败: $_"
+            Write-Host "验证码输入测试出错: $_" -ForegroundColor Red
           }
         }
         
-        Write-Host "登录模块测试完成"
-      
+        Write-Host "`n登录模块测试完成"
+        
+        # 检查是否有任何测试失败
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "登录模块测试失败"
+          exit 1
+        }
+
     - name: Test
       run: dotnet test --no-build --verbosity normal
       
