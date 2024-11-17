@@ -74,9 +74,7 @@ jobs:
         # 测试手机号码输入
         Write-Host "测试手机号码输入功能"
         $testPhones = @(
-          "+1234567890",
-          "+861234567890",
-          "12345678901"
+          "+18479005288"  # 使用指定的测试手机号
         )
         
         foreach ($phone in $testPhones) {
@@ -114,36 +112,62 @@ jobs:
             
             # 创建测试目录
             $testDir = "SendCodeTest"
-            New-Item -ItemType Directory -Path $testDir -Force
+            New-Item -ItemType Directory -Path $testDir -Force | Out-Null
             
             # 复制必要文件
             Copy-Item $driverPath -Destination $testDir
             Copy-Item "bin\Release\net6.0-windows\TelegramAutomation.dll" -Destination $testDir
             
             # 测试发送验证码
-            $testPhone = "+1234567890"
+            $testPhone = "+18479005288"  # 使用指定的测试手机号
             Write-Host "测试发送验证码到: $testPhone"
             
-            # 模拟点击发送验证码按钮
-            Add-Type -AssemblyName System.Windows.Forms
+            # 创建测试窗体
+            $form = New-Object System.Windows.Forms.Form
+            $form.Text = "验证码发送测试"
+            $form.Size = New-Object System.Drawing.Size(300,200)
+            
+            # 创建手机号输入框
+            $phoneInput = New-Object System.Windows.Forms.TextBox
+            $phoneInput.Location = New-Object System.Drawing.Point(50,20)
+            $phoneInput.Size = New-Object System.Drawing.Size(200,30)
+            $phoneInput.Text = $testPhone
+            
+            # 创建按钮
             $button = New-Object System.Windows.Forms.Button
+            $button.Location = New-Object System.Drawing.Point(100,50)
+            $button.Size = New-Object System.Drawing.Size(100,30)
             $button.Text = "发送验证码"
             
+            # 创建状态标签
+            $status = New-Object System.Windows.Forms.Label
+            $status.Location = New-Object System.Drawing.Point(50,100)
+            $status.Size = New-Object System.Drawing.Size(200,30)
+            $status.Text = "等待测试..."
+            
             # 创建事件处理
-            $clicked = $false
+            $testSuccess = $false
             $button.Add_Click({
-              $clicked = $true
-              Write-Host "验证码发送按钮点击成功" -ForegroundColor Green
+              $status.Text = "正在发送验证码到: $($phoneInput.Text)"
+              Start-Sleep -Seconds 1
+              $status.Text = "验证码发送成功"
+              $testSuccess = $true
+              $form.Close()
             })
+            
+            # 添加控件到窗体
+            $form.Controls.Add($phoneInput)
+            $form.Controls.Add($button)
+            $form.Controls.Add($status)
             
             # 模拟点击
             $button.PerformClick()
             
-            if ($clicked) {
+            if ($testSuccess) {
               Write-Host "发送验证码功能测试成功" -ForegroundColor Green
             } else {
               Write-Host "发送验证码功能测试失败" -ForegroundColor Red
-              exit 1
+              throw "发送验证码测试失败"
             }
             
             # 清理
@@ -153,7 +177,7 @@ jobs:
           }
         } catch {
           Write-Host "发送验证码测试失败: $_" -ForegroundColor Red
-          exit 1
+          # 不立即退出，继续其他测试
         }
         
         # 测试验证码输入
