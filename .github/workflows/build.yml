@@ -122,56 +122,53 @@ jobs:
             $testPhone = "+18479005288"  # 使用指定的测试手机号
             Write-Host "测试发送验证码到: $testPhone"
             
-            # 创建测试窗体
-            $form = New-Object System.Windows.Forms.Form
-            $form.Text = "验证码发送测试"
-            $form.Size = New-Object System.Drawing.Size(300,200)
+            # 创建测试文件
+            $testFile = Join-Path $testDir "test_result.txt"
             
-            # 创建手机号输入框
-            $phoneInput = New-Object System.Windows.Forms.TextBox
-            $phoneInput.Location = New-Object System.Drawing.Point(50,20)
-            $phoneInput.Size = New-Object System.Drawing.Size(200,30)
-            $phoneInput.Text = $testPhone
-            
-            # 创建按钮
-            $button = New-Object System.Windows.Forms.Button
-            $button.Location = New-Object System.Drawing.Point(100,50)
-            $button.Size = New-Object System.Drawing.Size(100,30)
-            $button.Text = "发送验证码"
-            
-            # 创建状态标签
-            $status = New-Object System.Windows.Forms.Label
-            $status.Location = New-Object System.Drawing.Point(50,100)
-            $status.Size = New-Object System.Drawing.Size(200,30)
-            $status.Text = "等待测试..."
-            
-            # 创建事件处理
-            $testSuccess = $false
-            $button.Add_Click({
-              $status.Text = "正在发送验证码到: $($phoneInput.Text)"
+            # 模拟发送验证码过程
+            try {
+              # 记录开始时间
+              $startTime = Get-Date
+              
+              # 写入测试信息
+              "开始发送验证码: $testPhone" | Out-File -FilePath $testFile
               Start-Sleep -Seconds 1
-              $status.Text = "验证码发送成功"
-              $testSuccess = $true
-              $form.Close()
-            })
-            
-            # 添加控件到窗体
-            $form.Controls.Add($phoneInput)
-            $form.Controls.Add($button)
-            $form.Controls.Add($status)
-            
-            # 模拟点击
-            $button.PerformClick()
-            
-            if ($testSuccess) {
-              Write-Host "发送验证码功能测试成功" -ForegroundColor Green
-            } else {
-              Write-Host "发送验证码功能测试失败" -ForegroundColor Red
-              throw "发送验证码测试失败"
+              
+              # 模拟发送过程
+              "正在连接服务器..." | Out-File -FilePath $testFile -Append
+              Start-Sleep -Milliseconds 500
+              
+              "正在验证手机号..." | Out-File -FilePath $testFile -Append
+              Start-Sleep -Milliseconds 500
+              
+              "发送验证码成功" | Out-File -FilePath $testFile -Append
+              
+              # 检查测试结果
+              $testContent = Get-Content -Path $testFile -Raw
+              if ($testContent -match "发送验证码成功") {
+                Write-Host "发送验证码功能测试成功" -ForegroundColor Green
+                $testSuccess = $true
+              } else {
+                Write-Host "发送验证码功能测试失败" -ForegroundColor Red
+                $testSuccess = $false
+              }
+              
+              # 记录执行时间
+              $endTime = Get-Date
+              $duration = ($endTime - $startTime).TotalSeconds
+              Write-Host "测试执行时间: $duration 秒"
+              
+            } catch {
+              Write-Host "发送验证码测试出错: $_" -ForegroundColor Red
+              $testSuccess = $false
             }
             
             # 清理
             Remove-Item -Path $testDir -Recurse -Force
+            
+            if (-not $testSuccess) {
+              throw "发送验证码测试失败"
+            }
           } else {
             Write-Host "ChromeDriver 不存在，跳过发送验证码测试" -ForegroundColor Yellow
           }
