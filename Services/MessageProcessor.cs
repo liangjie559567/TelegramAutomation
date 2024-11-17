@@ -29,111 +29,96 @@ namespace TelegramAutomation.Services
             {
                 Directory.CreateDirectory(messageFolder);
 
-                // 保存消息文本
-                if (_config.SaveMessageText)
+                // 处理消息文本
+                var messageText = await ExtractMessageText(message);
+                if (!string.IsNullOrEmpty(messageText))
                 {
-                    var messageText = message.FindElement(By.CssSelector(".text-content"))?.Text ?? "";
-                    if (!string.IsNullOrEmpty(messageText))
-                    {
-                        await File.WriteAllTextAsync(
-                            Path.Combine(messageFolder, "message.txt"),
-                            messageText,
-                            cancellationToken
-                        );
-                    }
+                    await File.WriteAllTextAsync(
+                        Path.Combine(messageFolder, "message.txt"),
+                        messageText,
+                        cancellationToken
+                    );
                 }
 
-                // 保存链接
-                if (_config.SaveLinks)
+                // 处理媒体文件
+                var mediaElements = message.FindElements(By.CssSelector(".media-container"));
+                foreach (var media in mediaElements)
                 {
-                    var links = message.FindElements(By.TagName("a"))
-                        .Select(a => a.GetAttribute("href"))
-                        .Where(href => !string.IsNullOrEmpty(href))
-                        .ToList();
+                    if (cancellationToken.IsCancellationRequested) break;
 
-                    if (links.Any())
-                    {
-                        await File.WriteAllLinesAsync(
-                            Path.Combine(messageFolder, "links.txt"),
-                            links,
-                            cancellationToken
-                        );
-                    }
+                    await ProcessMediaElement(media, messageFolder, progress, cancellationToken);
                 }
 
-                // 处理下载文件
-                await ProcessDownloadableFiles(message, messageFolder, progress, cancellationToken);
+                // 处理链接
+                var links = message.FindElements(By.CssSelector("a[href]"));
+                await ProcessLinks(links, messageFolder, cancellationToken);
+
+                progress.Report($"消息 {Path.GetFileName(messageFolder)} 处理完成");
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "处理消息时出错");
-                throw;
+                _logger.Error(ex, $"处理消息失败: {messageFolder}");
+                progress.Report($"处理消息失败: {ex.Message}");
             }
         }
 
-        private async Task ProcessDownloadableFiles(IWebElement message, string messageFolder,
+        private async Task<string> ExtractMessageText(IWebElement message)
+        {
+            try
+            {
+                var textElement = message.FindElement(By.CssSelector(".text-content"));
+                return await Task.FromResult(textElement.Text);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private async Task ProcessMediaElement(IWebElement media, string messageFolder,
             IProgress<string> progress, CancellationToken cancellationToken)
         {
             try
             {
-                var downloadLinks = new List<string>();
-                
-                // 查找直接下载链接
-                var directLinks = message.FindElements(By.CssSelector("a[href]"))
-                    .Select(a => a.GetAttribute("href"))
-                    .Where(href => !string.IsNullOrEmpty(href) && 
-                           _config.SupportedFileExtensions.Any(ext => 
-                               href.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
-                    .ToList();
-                downloadLinks.AddRange(directLinks);
-                
-                // 查找媒体文件
-                var mediaElements = message.FindElements(By.CssSelector(".media-container"));
-                foreach (var media in mediaElements)
-                {
-                    try
-                    {
-                        var downloadButton = media.FindElement(By.CssSelector(".download-button"));
-                        var downloadUrl = downloadButton.GetAttribute("href");
-                        if (!string.IsNullOrEmpty(downloadUrl))
-                        {
-                            downloadLinks.Add(downloadUrl);
-                        }
-                    }
-                    catch (NoSuchElementException)
-                    {
-                        // 忽略没有下载按钮的媒体元素
-                        continue;
-                    }
-                }
+                var mediaUrl = media.GetAttribute("src") ?? 
+                              media.FindElement(By.CssSelector("img,video")).GetAttribute("src");
 
-                foreach (var link in downloadLinks)
+                if (!string.IsNullOrEmpty(mediaUrl))
                 {
-                    if (cancellationToken.IsCancellationRequested) break;
-                    
-                    var fileName = Path.GetFileName(new Uri(link).LocalPath);
-                    if (string.IsNullOrEmpty(fileName))
-                    {
-                        fileName = $"file_{Guid.NewGuid()}{Path.GetExtension(link)}";
-                    }
-                    
-                    var filePath = Path.Combine(messageFolder, fileName);
-                    
-                    try
-                    {
-                        await _downloadManager.DownloadFile(link, filePath, progress, cancellationToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, $"下载文件失败: {link}");
-                        progress.Report($"下载失败: {fileName} - {ex.Message}");
-                    }
+                    await _downloadManager.DownloadFileAsync(
+                        mediaUrl,
+                        messageFolder,
+                        progress,
+                        cancellationToken
+                    );
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "处理可下载文件时出错");
-                throw;
+                _logger.Warn(ex, "处理媒体元素失败");
+            }
+        }
+
+        private async Task ProcessLinks(IReadOnlyCollection<IWebElement> links, 
+            string messageFolder, CancellationToken cancellationToken)
+        {
+            var linkList = new List<string>();
+            foreach (var link in links)
+            {
+                var href = link.GetAttribute("href");
+                if (!string.IsNullOrEmpty(href))
+                {
+                    linkList.Add(href);
+                }
+            }
+
+            if (linkList.Any())
+            {
+                await File.WriteAllLinesAsync(
+                    Path.Combine(messageFolder, "links.txt"),
+                    linkList,
+                    cancellationToken
+                );
             }
         }
     }

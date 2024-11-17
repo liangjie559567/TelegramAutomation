@@ -14,6 +14,7 @@ using WindowsInput;
 using System.Reflection;
 using TelegramAutomation.Models;
 using TelegramAutomation.Services;
+using WindowsInput.Native;
 
 namespace TelegramAutomation
 {
@@ -24,7 +25,7 @@ namespace TelegramAutomation
         private IWebDriver? _driver;
         private bool _disposed;
         private readonly SemaphoreSlim _downloadSemaphore;
-        private readonly InputSimulator _inputSimulator;
+        private readonly IKeyboardSimulator _keyboard;
         private CancellationTokenSource? _cancellationTokenSource;
         private readonly MessageProcessor _messageProcessor;
         private readonly DownloadManager _downloadManager;
@@ -33,7 +34,8 @@ namespace TelegramAutomation
         {
             _config = config ?? new DownloadConfiguration();
             _downloadSemaphore = new SemaphoreSlim(_config.MaxConcurrentDownloads);
-            _inputSimulator = new InputSimulator();
+            var inputSimulator = new InputSimulator();
+            _keyboard = inputSimulator.Keyboard;
             _downloadManager = new DownloadManager(_config);
             _messageProcessor = new MessageProcessor(_downloadManager, _config);
             _cancellationTokenSource = new CancellationTokenSource();
@@ -179,7 +181,7 @@ namespace TelegramAutomation
                 }
                 catch (WebDriverTimeoutException)
                 {
-                    throw new Exception("验证码发送失���，请检查手机号码是否正确");
+                    throw new Exception("验证码发送失，请检查手机号码是否正确");
                 }
             }
             catch (WebDriverException ex)
@@ -337,11 +339,11 @@ namespace TelegramAutomation
                 {
                     if (char.IsDigit(c))
                     {
-                        _inputSimulator.Keyboard.TextEntry(c);
+                        _keyboard.TextEntry(c);
                     }
                     else
                     {
-                        _inputSimulator.Keyboard.TextEntry(c.ToString());
+                        _keyboard.TextEntry(c.ToString());
                     }
                 });
                 await Task.Delay(Random.Shared.Next(50, 150));
@@ -369,7 +371,7 @@ namespace TelegramAutomation
         {
             try
             {
-                if (_driver == null) throw new InvalidOperationException("浏览器未初��化");
+                if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
                 
                 await Task.Run(async () => 
                 {
