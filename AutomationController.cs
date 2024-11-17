@@ -179,7 +179,7 @@ namespace TelegramAutomation
                 }
                 catch (WebDriverTimeoutException)
                 {
-                    throw new Exception("验证码发送失败，请检查手机号码是否正确");
+                    throw new Exception("验证码发送失���，请检查手机号码是否正确");
                 }
             }
             catch (WebDriverException ex)
@@ -295,9 +295,10 @@ namespace TelegramAutomation
                 {
                     return await operation();
                 }
-                catch (Exception ex) when (i < maxRetries - 1)
+                catch (Exception ex)
                 {
-                    _logger.Warn($"操作失败，准备重试 ({i + 1}/{maxRetries}): {ex.Message}");
+                    _logger.Warn($"操作失败，重试 {i + 1}/{maxRetries}: {ex.Message}");
+                    if (i == maxRetries - 1) throw;
                     await Task.Delay(1000 * (i + 1));
                 }
             }
@@ -368,7 +369,7 @@ namespace TelegramAutomation
         {
             try
             {
-                if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
+                if (_driver == null) throw new InvalidOperationException("浏览器未初��化");
                 
                 await Task.Run(async () => 
                 {

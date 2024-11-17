@@ -1,5 +1,35 @@
 # Telegram 自动化下载工具
 
+一个基于 Selenium 的 Telegram 频道内容自动化下载工具。
+
+## 主要特性
+
+- 🚀 自动化下载 Telegram 频道内容
+- 💾 支持多种文件类型下载
+- 🔄 智能重试机制
+- 🔒 安全的浏览器配置
+- 📝 详细的日志记录
+- 🎯 简单易用的界面
+
+## 系统要求
+
+- Windows 操作系统
+- .NET 6.0 或更高版本
+- Chrome 浏览器 (122.0 或更高版本)
+
+## 安装说明
+
+1. 从 [Releases](https://github.com/liangjie559567/TelegramAutomation/releases) 页面下载最新版本
+2. 解压下载的文件
+3. 运行 TelegramAutomation.exe
+
+## 使用方法
+
+1. 启动程序
+2. 输入 Telegram 频道链接
+3. 选择保存路径
+4. 点击开始按钮
+
 ## 项目结构
 
 ```
