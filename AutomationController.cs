@@ -286,19 +286,56 @@ namespace TelegramAutomation
             throw new Exception($"操作失败，已重试 {maxRetries} 次");
         }
 
-        private void SimulateKeyPress(string text)
+        private async Task<IWebElement> WaitForElement(By by, int timeoutSeconds = 30)
+        {
+            if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
+
+            var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
+            return await Task.Run(() => wait.Until(d => d.FindElement(by)));
+        }
+
+        private async Task<bool> WaitForElementVisible(By by, int timeoutSeconds = 30)
+        {
+            try
+            {
+                var element = await WaitForElement(by, timeoutSeconds);
+                return await Task.Run(() => element.Displayed && element.Enabled);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private async Task SimulateKeyPress(string text)
         {
             foreach (var c in text)
             {
                 if (char.IsDigit(c))
                 {
-                    _inputSimulator.Keyboard.TextEntry(c);
+                    await Task.Run(() => _inputSimulator.Keyboard.TextEntry(c));
                 }
                 else
                 {
-                    _inputSimulator.Keyboard.TextEntry(c.ToString());
+                    await Task.Run(() => _inputSimulator.Keyboard.TextEntry(c.ToString()));
                 }
-                Thread.Sleep(Random.Shared.Next(50, 150)); // 随机延迟
+                await Task.Delay(Random.Shared.Next(50, 150)); // 随机延迟
+            }
+        }
+
+        private async Task<bool> CheckLoginStatus()
+        {
+            try
+            {
+                var chatList = await WaitForElementVisible(By.CssSelector(".chat-list"), 5);
+                if (chatList) return true;
+
+                var messagesContainer = await WaitForElementVisible(By.CssSelector(".messages-container"), 5);
+                return messagesContainer;
+            }
+            catch
+            {
+                return false;
             }
         }
 
