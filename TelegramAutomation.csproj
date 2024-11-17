@@ -4,7 +4,7 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.4.6</Version>
+    <Version>1.4.7</Version>
     <Authors>liangjie559567</Authors>
     <Company>TelegramAutomation</Company>
     <Description>Telegram频道自动化下载工具</Description>
@@ -14,6 +14,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,7 +23,7 @@
     <PackageReference Include="Selenium.Support" Version="4.18.1" />
     <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="122.0.6261.5700" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
-    <PackageReference Include="System.Text.Json" Version="6.0.8" />
+    <PackageReference Include="System.Text.Json" Version="6.0.0" />
     <PackageReference Include="WindowsInput" Version="6.4.1" />
   </ItemGroup>
 
