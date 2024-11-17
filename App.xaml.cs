@@ -24,7 +24,12 @@ namespace TelegramAutomation
             catch (Exception ex)
             {
                 _logger.Error(ex, "应用程序启动失败");
-                MessageBox.Show($"启动失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    $"启动失败: {ex.Message}", 
+                    "错误", 
+                    MessageBoxButton.OK, 
+                    MessageBoxImage.Error
+                );
                 Current.Shutdown();
             }
         }
