@@ -79,7 +79,10 @@ namespace TelegramAutomation
                         "win32",
                         "chromedriver.exe"
                     ),
-                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "publish", "chromedriver.exe")
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "publish", "chromedriver.exe"),
+                    "chromedriver.exe",
+                    Path.Combine("bin", "Release", "net6.0-windows", "chromedriver.exe"),
+                    Path.Combine("bin", "Debug", "net6.0-windows", "chromedriver.exe")
                 };
 
                 var pathVar = Environment.GetEnvironmentVariable("PATH");
@@ -93,6 +96,14 @@ namespace TelegramAutomation
                         }
                     }
                 }
+
+                var otherPaths = new[]
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ChromeDriver", "chromedriver.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "ChromeDriver", "chromedriver.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ChromeDriver", "chromedriver.exe")
+                };
+                possiblePaths.AddRange(otherPaths);
 
                 string? driverPath = null;
                 foreach (var path in possiblePaths.Where(p => !string.IsNullOrEmpty(p)))
@@ -115,8 +126,8 @@ namespace TelegramAutomation
 
                 if (driverPath == null)
                 {
-                    throw new FileNotFoundException("ChromeDriver 未找到，请确保 chromedriver.exe 在应用程序目录中。已检查的路径：" + 
-                        string.Join("\n", possiblePaths));
+                    throw new FileNotFoundException("ChromeDriver 未找到，请确保 chromedriver.exe 在应用程序目录中。已检查的路径：\n" + 
+                        string.Join("\n", possiblePaths.Where(p => !string.IsNullOrEmpty(p))));
                 }
 
                 var service = ChromeDriverService.CreateDefaultService(Path.GetDirectoryName(driverPath));
