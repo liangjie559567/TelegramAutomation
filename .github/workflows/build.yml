@@ -42,28 +42,50 @@ jobs:
       
     - name: Test ChromeDriver
       run: |
-        $driverPath = "bin\Release\net6.0-windows\chromedriver.exe"
-        Write-Host "检查 ChromeDriver 是否存在: $driverPath"
-        if (Test-Path $driverPath) {
-          Write-Host "ChromeDriver 文件存在"
-          $version = (Get-Item $driverPath).VersionInfo.FileVersion
-          Write-Host "ChromeDriver 版本: $version"
+        # 1. 检查 NuGet 包中的 ChromeDriver
+        $nugetPath = Join-Path $env:USERPROFILE ".nuget\packages\selenium.webdriver.chromedriver\122.0.6261.5700\driver\win32\chromedriver.exe"
+        Write-Host "检查 NuGet 包中的 ChromeDriver: $nugetPath"
+        
+        if (Test-Path $nugetPath) {
+          Write-Host "在 NuGet 包中找到 ChromeDriver"
           
-          # 尝试启动 ChromeDriver
-          try {
-            $process = Start-Process -FilePath $driverPath -ArgumentList "--version" -NoNewWindow -PassThru -Wait
-            if ($process.ExitCode -eq 0) {
-              Write-Host "ChromeDriver 启动测试成功"
-            } else {
-              Write-Error "ChromeDriver 启动测试失败"
+          # 2. 确保目标目录存在
+          $targetDir = "bin\Release\net6.0-windows"
+          if (-not (Test-Path $targetDir)) {
+            New-Item -ItemType Directory -Path $targetDir -Force
+            Write-Host "创建目标目录: $targetDir"
+          }
+          
+          # 3. 复制 ChromeDriver
+          $targetPath = Join-Path $targetDir "chromedriver.exe"
+          Copy-Item -Path $nugetPath -Destination $targetPath -Force
+          Write-Host "复制 ChromeDriver 到: $targetPath"
+          
+          # 4. 验证复制结果
+          if (Test-Path $targetPath) {
+            Write-Host "ChromeDriver 复制成功"
+            $version = (Get-Item $targetPath).VersionInfo.FileVersion
+            Write-Host "ChromeDriver 版本: $version"
+            
+            # 5. 测试 ChromeDriver
+            try {
+              $process = Start-Process -FilePath $targetPath -ArgumentList "--version" -NoNewWindow -PassThru -Wait
+              if ($process.ExitCode -eq 0) {
+                Write-Host "ChromeDriver 启动测试成功"
+              } else {
+                Write-Error "ChromeDriver 启动测试失败"
+                exit 1
+              }
+            } catch {
+              Write-Error "ChromeDriver 启动失败: $_"
               exit 1
             }
-          } catch {
-            Write-Error "ChromeDriver 启动失败: $_"
+          } else {
+            Write-Error "ChromeDriver 复制失败"
             exit 1
           }
         } else {
-          Write-Error "ChromeDriver 文件不存在"
+          Write-Error "在 NuGet 包中未找到 ChromeDriver: $nugetPath"
           exit 1
         }
 
