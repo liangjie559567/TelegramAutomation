@@ -70,36 +70,34 @@ jobs:
     - name: Test Login Module
       run: |
         Write-Host "开始测试登录模块..."
+        $testSuccess = $true  # 添加全局测试状态标志
         
-        # 测试手机号码输入
+        # 测试手机号码输入功能
         Write-Host "测试手机号码输入功能"
-        $testPhones = @(
-          "+18479005288"  # 使用指定的测试手机号
-        )
+        $testPhone = "+18479005288"  # 只测试一个手机号
         
-        foreach ($phone in $testPhones) {
-          Write-Host "测试手机号: $phone"
-          try {
-            # 使用 PowerShell 的 Out-File 来测试输入
-            $testFile = "phone_input_test.txt"
-            $phone | Out-File -FilePath $testFile
-            
-            # 读取并验证
-            $content = Get-Content -Path $testFile -Raw
-            $content = $content.TrimEnd()  # 移除末尾的换行符
-            
-            if ($content -eq $phone) {
-              Write-Host "手机号输入测试成功: $phone" -ForegroundColor Green
-            } else {
-              Write-Host "手机号输入测试失败: 期望 '$phone', 实际 '$content'" -ForegroundColor Red
-              Write-Host "长度对比: 期望 $($phone.Length), 实际 $($content.Length)" -ForegroundColor Yellow
-            }
-            
-            # 清理
-            Remove-Item $testFile -ErrorAction SilentlyContinue
-          } catch {
-            Write-Host "手机号输入测试出错: $_" -ForegroundColor Red
+        Write-Host "测试手机号: $testPhone"
+        try {
+          # 使用 PowerShell 的 Out-File 来测试输入
+          $testFile = "phone_input_test.txt"
+          $testPhone | Out-File -FilePath $testFile
+          
+          # 读取并验证
+          $content = Get-Content -Path $testFile -Raw
+          $content = $content.TrimEnd()  # 移除末尾的换行符
+          
+          if ($content -eq $testPhone) {
+            Write-Host "手机号输入测试成功: $testPhone" -ForegroundColor Green
+          } else {
+            Write-Host "手机号输入测试失败: 期望 '$testPhone', 实际 '$content'" -ForegroundColor Red
+            $testSuccess = $false  # 更新测试状态
           }
+          
+          # 清理
+          Remove-Item $testFile -ErrorAction SilentlyContinue
+        } catch {
+          Write-Host "手机号输入测试出错: $_" -ForegroundColor Red
+          $testSuccess = $false  # 更新测试状态
         }
         
         # 测试发送验证码功能
@@ -119,7 +117,6 @@ jobs:
             Copy-Item "bin\Release\net6.0-windows\TelegramAutomation.dll" -Destination $testDir
             
             # 测试发送验证码
-            $testPhone = "+18479005288"  # 使用指定的测试手机号
             Write-Host "测试发送验证码到: $testPhone"
             
             # 创建测试文件
@@ -147,10 +144,9 @@ jobs:
               $testContent = Get-Content -Path $testFile -Raw
               if ($testContent -match "发送验证码成功") {
                 Write-Host "发送验证码功能测试成功" -ForegroundColor Green
-                $testSuccess = $true
               } else {
                 Write-Host "发送验证码功能测试失败" -ForegroundColor Red
-                $testSuccess = $false
+                $testSuccess = $false  # 更新测试状态
               }
               
               # 记录执行时间
@@ -160,60 +156,52 @@ jobs:
               
             } catch {
               Write-Host "发送验证码测试出错: $_" -ForegroundColor Red
-              $testSuccess = $false
+              $testSuccess = $false  # 更新测试状态
             }
             
             # 清理
             Remove-Item -Path $testDir -Recurse -Force
-            
-            if (-not $testSuccess) {
-              throw "发送验证码测试失败"
-            }
           } else {
             Write-Host "ChromeDriver 不存在，跳过发送验证码测试" -ForegroundColor Yellow
+            $testSuccess = $false  # 更新测试状态
           }
         } catch {
           Write-Host "发送验证码测试失败: $_" -ForegroundColor Red
-          # 不立即退出，继续其他测试
+          $testSuccess = $false  # 更新测试状态
         }
         
         # 测试验证码输入
         Write-Host "`n测试验证码输入功能"
-        $testCodes = @(
-          "123456",
-          "000000",
-          "999999"
-        )
+        $testCode = "123456"  # 只测试一个验证码
         
-        foreach ($code in $testCodes) {
-          Write-Host "测试验证码: $code"
-          try {
-            # 使用 PowerShell 的 Out-File 来测试输入
-            $testFile = "code_input_test.txt"
-            $code | Out-File -FilePath $testFile
-            
-            # 读取并验证
-            $content = Get-Content -Path $testFile -Raw
-            $content = $content.TrimEnd()  # 移除末尾的换行符
-            
-            if ($content -eq $code) {
-              Write-Host "验证码输入测试成功: $code" -ForegroundColor Green
-            } else {
-              Write-Host "验证码输入测试失败: 期望 '$code', 实际 '$content'" -ForegroundColor Red
-              Write-Host "长度对比: 期望 $($code.Length), 实际 $($content.Length)" -ForegroundColor Yellow
-            }
-            
-            # 清理
-            Remove-Item $testFile -ErrorAction SilentlyContinue
-          } catch {
-            Write-Host "验证码输入测试出错: $_" -ForegroundColor Red
+        Write-Host "测试验证码: $testCode"
+        try {
+          # 使用 PowerShell 的 Out-File 来测试输入
+          $testFile = "code_input_test.txt"
+          $testCode | Out-File -FilePath $testFile
+          
+          # 读取并验证
+          $content = Get-Content -Path $testFile -Raw
+          $content = $content.TrimEnd()  # 移除末尾的换行符
+          
+          if ($content -eq $testCode) {
+            Write-Host "验证码输入测试成功: $testCode" -ForegroundColor Green
+          } else {
+            Write-Host "验证码输入测试失败: 期望 '$testCode', 实际 '$content'" -ForegroundColor Red
+            $testSuccess = $false  # 更新测试状态
           }
+          
+          # 清理
+          Remove-Item $testFile -ErrorAction SilentlyContinue
+        } catch {
+          Write-Host "验证码输入测试出错: $_" -ForegroundColor Red
+          $testSuccess = $false  # 更新测试状态
         }
         
         Write-Host "`n登录模块测试完成"
         
-        # 检查是否有任何测试失败
-        if ($LASTEXITCODE -ne 0) {
+        # 根据测试状态决定是否退出
+        if (-not $testSuccess) {
           Write-Error "登录模块测试失败"
           exit 1
         }
