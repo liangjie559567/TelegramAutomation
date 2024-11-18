@@ -67,6 +67,7 @@ namespace TelegramAutomation
 
                 var possiblePaths = new List<string>
                 {
+                    Path.Combine(Directory.GetCurrentDirectory(), "chromedriver.exe"),
                     Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "chromedriver.exe"),
                     Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "chromedriver.exe"),
                     Path.Combine(
@@ -78,86 +79,56 @@ namespace TelegramAutomation
                         "driver",
                         "win32",
                         "chromedriver.exe"
-                    ),
-                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "publish", "chromedriver.exe"),
-                    "chromedriver.exe",
-                    Path.Combine("bin", "Release", "net6.0-windows", "chromedriver.exe"),
-                    Path.Combine("bin", "Debug", "net6.0-windows", "chromedriver.exe")
+                    )
                 };
-
-                var pathVar = Environment.GetEnvironmentVariable("PATH");
-                if (!string.IsNullOrEmpty(pathVar))
-                {
-                    foreach (var path in pathVar.Split(Path.PathSeparator))
-                    {
-                        if (!string.IsNullOrEmpty(path))
-                        {
-                            possiblePaths.Add(Path.Combine(path, "chromedriver.exe"));
-                        }
-                    }
-                }
-
-                var otherPaths = new[]
-                {
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ChromeDriver", "chromedriver.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "ChromeDriver", "chromedriver.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ChromeDriver", "chromedriver.exe")
-                };
-                possiblePaths.AddRange(otherPaths);
 
                 string? driverPath = null;
                 foreach (var path in possiblePaths.Where(p => !string.IsNullOrEmpty(p)))
                 {
                     _logger.Info($"检查 ChromeDriver 路径: {path}");
-                    try
+                    if (File.Exists(path))
                     {
-                        if (File.Exists(path))
-                        {
-                            driverPath = path;
-                            _logger.Info($"找到 ChromeDriver: {path}");
-                            break;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warn($"检查路径失败: {path}, 错误: {ex.Message}");
+                        driverPath = path;
+                        _logger.Info($"找到 ChromeDriver: {path}");
+                        break;
                     }
                 }
 
                 if (driverPath == null)
                 {
-                    throw new FileNotFoundException("ChromeDriver 未找到，请确保 chromedriver.exe 在应用程序目录中。已检查的路径：\n" + 
-                        string.Join("\n", possiblePaths.Where(p => !string.IsNullOrEmpty(p))));
+                    var nugetPath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                        ".nuget",
+                        "packages",
+                        "selenium.webdriver.chromedriver",
+                        "122.0.6261.5700",
+                        "driver",
+                        "win32",
+                        "chromedriver.exe"
+                    );
+
+                    if (File.Exists(nugetPath))
+                    {
+                        var targetPath = Path.Combine(Directory.GetCurrentDirectory(), "chromedriver.exe");
+                        _logger.Info($"正在从 NuGet 包复制 ChromeDriver 到: {targetPath}");
+                        File.Copy(nugetPath, targetPath, true);
+                        driverPath = targetPath;
+                    }
+                    else
+                    {
+                        throw new FileNotFoundException("ChromeDriver 未找到，请确保 chromedriver.exe 在应用程序目录中。已检查的路径：\n" + 
+                            string.Join("\n", possiblePaths));
+                    }
                 }
 
                 var service = ChromeDriverService.CreateDefaultService(Path.GetDirectoryName(driverPath));
                 service.HideCommandPromptWindow = true;
 
-                for (int i = 0; i < 3; i++)
-                {
-                    try
-                    {
-                        await Task.Run(() => 
-                        {
-                            _driver = new ChromeDriver(service, options);
-                            _driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(30);
-                            _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
-                        });
-                        _logger.Info("浏览器初始化成功");
-                        break;
-                    }
-                    catch (WebDriverException ex)
-                    {
-                        _logger.Warn($"尝试初始化浏览器失败 ({i + 1}/3): {ex.Message}");
-                        if (i == 2) 
-                        {
-                            _logger.Error($"ChromeDriver 目录: {service.DriverServicePath}");
-                            _logger.Error($"ChromeDriver 是否存在: {File.Exists(driverPath)}");
-                            throw;
-                        }
-                        await Task.Delay(1000);
-                    }
-                }
+                _driver = new ChromeDriver(service, options);
+                _driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(30);
+                _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+
+                _logger.Info("浏览器初始化成功");
             }
             catch (Exception ex)
             {
