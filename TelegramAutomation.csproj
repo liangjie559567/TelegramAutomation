@@ -4,7 +4,7 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.8.17</Version>
+    <Version>1.8.18</Version>
     <Authors>liangjie559567</Authors>
     <Company>TelegramAutomation</Company>
     <Description>Telegram频道自动化下载工具</Description>
@@ -17,6 +17,7 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <ChromeDriverVersion>122.0.6261.5700</ChromeDriverVersion>
     <StartupObject>TelegramAutomation.Program</StartupObject>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
   </PropertyGroup>
 
   <ItemGroup>
@@ -80,6 +81,7 @@
   <ItemGroup>
     <Page Include="Views\MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
   </ItemGroup>
 </Project> 
