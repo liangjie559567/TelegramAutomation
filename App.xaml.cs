@@ -2,12 +2,21 @@ using System.Windows;
 
 namespace TelegramAutomation
 {
-    public partial class App : Application
+    public partial class App : System.Windows.Application
     {
         public App()
         {
-            // 移除 StartupUri
-            // 初始化代码移到这里
+            InitializeComponent();
+            
+            // 初始化主窗口
+            MainWindow = new MainWindow();
+            MainWindow.Show();
+        }
+
+        protected override void OnStartup(StartupEventArgs e)
+        {
+            base.OnStartup(e);
+            // 其他启动代码
         }
     }
 }
