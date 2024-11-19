@@ -179,7 +179,7 @@ namespace TelegramAutomation
 
                 // 清除并输入手机号码
                 phoneInput.Clear();
-                await Task.Delay(500); // 等待清除完成
+                await Task.Delay(500); // 等待清除完���
                 
                 // 模拟人工输
                 foreach (var c in phoneNumber)
@@ -490,39 +490,39 @@ namespace TelegramAutomation
                     ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
                 _logger.Info($"NuGet 包根目录: {nugetRoot}");
 
+                // 检查所有可能的路径
+                var possiblePaths = new[]
+                {
+                    // 当前目录
+                    driverPath,
+                    
+                    // NuGet 包路径
+                    Path.Combine(
+                        nugetRoot,
+                        "selenium.webdriver.chromedriver",
+                        "132.0.6834.600-beta",
+                        "driver",
+                        "win32",
+                        "chromedriver.exe"
+                    ),
+                    
+                    // 发布目录
+                    Path.Combine(baseDir, "publish", "chromedriver.exe"),
+                    
+                    // 构建输出目录
+                    Path.Combine(baseDir, "bin", "Release", "net6.0-windows", "chromedriver.exe"),
+                    Path.Combine(baseDir, "bin", "Debug", "net6.0-windows", "chromedriver.exe"),
+                    
+                    // 相对路径
+                    "chromedriver.exe",
+                    @".\chromedriver.exe",
+                    @"..\chromedriver.exe"
+                };
+
                 if (!File.Exists(driverPath))
                 {
                     _logger.Warn("ChromeDriver 不存在，尝试从可能的位置查找");
                     
-                    // 检查所有可能的路径
-                    var possiblePaths = new[]
-                    {
-                        // 当前目录
-                        driverPath,
-                        
-                        // NuGet 包路径
-                        Path.Combine(
-                            nugetRoot,
-                            "selenium.webdriver.chromedriver",
-                            "132.0.6834.600-beta",
-                            "driver",
-                            "win32",
-                            "chromedriver.exe"
-                        ),
-                        
-                        // 发布目录
-                        Path.Combine(baseDir, "publish", "chromedriver.exe"),
-                        
-                        // 构建输出目录
-                        Path.Combine(baseDir, "bin", "Release", "net6.0-windows", "chromedriver.exe"),
-                        Path.Combine(baseDir, "bin", "Debug", "net6.0-windows", "chromedriver.exe"),
-                        
-                        // 相对路径
-                        "chromedriver.exe",
-                        @".\chromedriver.exe",
-                        @"..\chromedriver.exe"
-                    };
-
                     foreach (var path in possiblePaths)
                     {
                         _logger.Info($"检查路径: {path}");
@@ -538,7 +538,7 @@ namespace TelegramAutomation
                                 
                                 try
                                 {
-                                    File.Copy(path, driverPath, true);
+                                    await Task.Run(() => File.Copy(path, driverPath, true));
                                     _logger.Info($"已复制 ChromeDriver 到: {driverPath}");
                                     break;
                                 }
@@ -574,7 +574,7 @@ namespace TelegramAutomation
                 // 验证 ChromeDriver 是否可用
                 try
                 {
-                    var driverInfo = FileVersionInfo.GetVersionInfo(driverPath);
+                    var driverInfo = await Task.Run(() => FileVersionInfo.GetVersionInfo(driverPath));
                     _logger.Info($"ChromeDriver 版本: {driverInfo.FileVersion}");
                     
                     // 检查文件权限
@@ -588,7 +588,7 @@ namespace TelegramAutomation
                     }
 
                     // 验证文件完整性
-                    using (var fs = new FileStream(driverPath, FileMode.Open, FileAccess.Read))
+                    await using (var fs = new FileStream(driverPath, FileMode.Open, FileAccess.Read))
                     {
                         _logger.Info($"文件可以正常打开，大小: {fs.Length:N0} 字节");
                     }

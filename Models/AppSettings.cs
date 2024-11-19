@@ -8,6 +8,7 @@ namespace TelegramAutomation.Models
     public class AppSettings
     {
         public DownloadConfiguration DownloadConfig { get; set; } = new();
+        public ChromeDriverConfig ChromeDriver { get; set; } = new();
         public string DefaultSavePath { get; set; } = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "TelegramDownloads"
@@ -32,5 +33,16 @@ namespace TelegramAutomation.Models
             });
             File.WriteAllText("appsettings.json", json);
         }
+    }
+
+    public class ChromeDriverConfig
+    {
+        public string Version { get; set; } = "132.0.6834.600-beta";
+        public string[] SearchPaths { get; set; } = new[]
+        {
+            "chromedriver.exe",
+            @".\chromedriver.exe",
+            @"..\chromedriver.exe"
+        };
     }
 } 
