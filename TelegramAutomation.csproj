@@ -4,7 +4,7 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.8.4</Version>
+    <Version>1.8.5</Version>
     <Authors>liangjie559567</Authors>
     <Company>TelegramAutomation</Company>
     <Description>Telegram频道自动化下载工具</Description>
@@ -19,8 +19,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="6.0.8" />
-    <PackageReference Include="InputSimulator" Version="1.0.4" />
+    <PackageReference Include="System.Text.Json" Version="6.0.7" />
+    <PackageReference Include="WindowsInput" Version="6.4.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="6.0.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.1" />

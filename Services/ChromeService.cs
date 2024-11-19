@@ -1,6 +1,9 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Diagnostics;
 using NLog;
 using TelegramAutomation.Models;
-using System.Diagnostics;
 
 namespace TelegramAutomation.Services
 {
@@ -19,19 +22,7 @@ namespace TelegramAutomation.Services
             try
             {
                 var chromePath = FindChromePath();
-                if (string.IsNullOrEmpty(chromePath))
-                {
-                    return false;
-                }
-
-                var version = GetChromeVersion(chromePath);
-                if (string.IsNullOrEmpty(version))
-                {
-                    return false;
-                }
-
-                _logger.Info($"Chrome 版本: {version}");
-                return true;
+                return !string.IsNullOrEmpty(chromePath);
             }
             catch (Exception ex)
             {
@@ -44,7 +35,7 @@ namespace TelegramAutomation.Services
         {
             try
             {
-                var paths = new[]
+                var defaultPaths = new[]
                 {
                     @"C:\Program Files\Google\Chrome\Application\chrome.exe",
                     @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -52,7 +43,9 @@ namespace TelegramAutomation.Services
                         @"Google\Chrome\Application\chrome.exe")
                 };
 
-                foreach (var path in paths.Concat(_settings.ChromeDriver.SearchPaths))
+                var allPaths = defaultPaths.Concat(_settings.ChromeDriver.SearchPaths);
+                
+                foreach (var path in allPaths)
                 {
                     if (File.Exists(path))
                     {
@@ -75,17 +68,20 @@ namespace TelegramAutomation.Services
         {
             try
             {
-                var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
-                var version = versionInfo.FileVersion;
-                
-                if (string.IsNullOrEmpty(version))
+                if (File.Exists(chromePath))
                 {
-                    _logger.Warn("无法获取 Chrome 版本");
-                    return null;
+                    var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
+                    var version = versionInfo.FileVersion;
+                    
+                    if (!string.IsNullOrEmpty(version))
+                    {
+                        _logger.Info($"Chrome 版本: {version}");
+                        return version;
+                    }
                 }
-
-                _logger.Info($"Chrome 版本: {version}");
-                return version;
+                
+                _logger.Warn("无法获取 Chrome 版本");
+                return null;
             }
             catch (Exception ex)
             {
