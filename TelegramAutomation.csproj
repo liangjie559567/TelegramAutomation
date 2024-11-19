@@ -4,7 +4,7 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.7.8</Version>
+    <Version>1.8.0</Version>
     <Authors>liangjie559567</Authors>
     <Company>TelegramAutomation</Company>
     <Description>Telegram频道自动化下载工具</Description>
@@ -15,13 +15,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <ChromeDriverVersion>132.0.6834.600-beta</ChromeDriverVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="NLog" Version="5.2.8" />
     <PackageReference Include="Selenium.WebDriver" Version="4.18.1" />
     <PackageReference Include="Selenium.Support" Version="4.18.1" />
-    <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="132.0.6834.600-beta" />
+    <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="$(ChromeDriverVersion)" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="6.0.0" />
@@ -44,7 +45,7 @@
 
   <Target Name="CopyChromeDriver" AfterTargets="Build">
     <PropertyGroup>
-      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\132.0.6834.600-beta\driver\win32\chromedriver.exe</ChromeDriverPath>
+      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\$(ChromeDriverVersion)\driver\win32\chromedriver.exe</ChromeDriverPath>
       <ChromeDriverTargetPath>$(OutDir)chromedriver.exe</ChromeDriverTargetPath>
     </PropertyGroup>
     
@@ -66,7 +67,7 @@
 
   <Target Name="CopyChromeDriverOnPublish" AfterTargets="Publish">
     <PropertyGroup>
-      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\132.0.6834.600-beta\driver\win32\chromedriver.exe</ChromeDriverPath>
+      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\$(ChromeDriverVersion)\driver\win32\chromedriver.exe</ChromeDriverPath>
       <ChromeDriverPublishPath>$(PublishDir)chromedriver.exe</ChromeDriverPublishPath>
     </PropertyGroup>
     
