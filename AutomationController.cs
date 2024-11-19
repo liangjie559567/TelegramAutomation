@@ -633,7 +633,21 @@ namespace TelegramAutomation
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to initialize ChromeDriver");
+                _logger.Error(ex, "Failed to initialize ChromeDriver");
+                throw;
+            }
+        }
+
+        private async Task HandleMethodAsync()
+        {
+            try
+            {
+                await Task.Delay(100); // 添加实际的异步操作
+                // ... other code ...
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error in HandleMethodAsync");
                 throw;
             }
         }

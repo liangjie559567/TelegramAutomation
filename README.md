@@ -1,16 +1,16 @@
 # Telegram 自动化下载工具
 
-## 最新更新 (v1.8.11)
+## 最新更新 (v1.8.12)
+- 🔧 修复 NLog 日志配置问题
+- ⚡️ 优化异步方法实现
+- 🛠️ 完善错误处理机制
+- 📝 改进日志记录系统
+
+## 上一版本 (v1.8.11)
 - 🔄 修复 ChromeDriver 版本匹配问题
 - 🛠️ 优化异步方法实现
 - ⚡️ 改进错误处理机制
 - 📝 完善日志记录
-
-## 上一版本 (v1.8.10)
-- 🔧 优化项目目录结构和文档说明
-- 📚 完善技术栈和系统架构文档
-- 🛠️ 改进开发指南和调试说明
-- ✨ 更新系统要求和安装步骤
 
 ## 程序目录结构
 
@@ -18,43 +18,87 @@
 
 1. **.github/**
    - `workflows/build.yml`: CI/CD自动构建配置，包含测试和发布流程
+   - 自动化测试和部署配置
+   - GitHub Actions 工作流定义
 
 2. **Commands/**
+   - `RelayCommand.cs`: MVVM命令实现
    - 包含所有命令处理相关的类
    - 实现命令模式的具体命令
 
 3. **docs/**
    - `CONTRIBUTING.md`: 项目贡献指南
    - `FAQ.md`: 常见问题解答
+   - 技术文档和使用说明
 
 4. **Models/**
-   - 包含所有数据模型类
-   - 定义应用程序的数据结构
+   - `AppSettings.cs`: 应用程序配置模型
+   - `DownloadConfiguration.cs`: 下载配置模型
+   - 其他数据模型类定义
 
 5. **Services/**
    - `ChromeService.cs`: Chrome浏览器检测和管理
    - `DownloadManager.cs`: 文件下载管理和并发控制
    - `MessageProcessor.cs`: Telegram消息解析和处理
+   - 核心业务逻辑服务实现
 
 6. **Themes/**
-   - 包含应用程序的主题和样式资源
+   - `Default.xaml`: 默认主题样式定义
    - 自定义控件样式
+   - 全局资源字典
 
 7. **ViewModels/**
+   - `ViewModelBase.cs`: MVVM基类实现
    - `MainViewModel.cs`: 主窗口的视图模型
-   - 实现MVVM模式的视图逻辑
+   - 其他视图模型类
 
 8. **Views/**
    - `MainWindow.xaml`: 主窗口的XAML界面定义
-   - 用户界面布局和控件
+   - `MainWindow.xaml.cs`: 主窗口的代码后置
+   - 用户界面实现
 
 9. **根目录文件**
    - `App.xaml/cs`: 应用程序入口和全局配置
    - `appsettings.json`: 应用程序配置文件
    - `AutomationController.cs`: 自动化控制核心类
    - `nlog.config`: NLog日志框架配置
+   - `Program.cs`: 程序入口点
    - `CHANGELOG.md`: 版本更新记录
    - `README.md`: 项目说明文档
+   - `TelegramAutomation.csproj`: 项目定义文件
+
+### 文件说明
+
+1. **配置文件**
+   - `appsettings.json`: 应用程序主配置
+   - `nlog.config`: 日志配置
+   - `.gitignore`: Git忽略规则
+
+2. **核心文件**
+   - `AutomationController.cs`: 自动化控制器
+   - `Program.cs`: 应用程序入口
+   - `App.xaml`: WPF应用程序定义
+
+3. **项目文件**
+   - `TelegramAutomation.csproj`: 项目配置
+   - `packages.config`: NuGet包配置
+   - `*.sln`: 解决方案文件
+
+### 资源文件
+- `Assets/`: 图片和图标资源
+- `Themes/`: 主题和样式文件
+- `Resources/`: 其他资源文件
+
+### 输出目录
+- `bin/`: 编译输出目录
+- `obj/`: 中间文件目录
+- `publish/`: 发布输出目录
+
+### 日志目录
+- `logs/`: 应用程序日志
+  - `errors/`: 错误日志
+  - `debug/`: 调试日志
+  - `info/`: 信息日志
 
 ## 技术栈
 - **框架**: 
@@ -184,7 +228,7 @@
 ### 3. 高级功能
 - 支持多线程下载
 - 自动重试失败任务
-- ��点续传支持
+- 断点续传支持
 - 智能文件分类
 
 ## 开发指南
