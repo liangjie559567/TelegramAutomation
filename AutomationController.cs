@@ -179,7 +179,7 @@ namespace TelegramAutomation
 
                 // 清除并输入手机号码
                 phoneInput.Clear();
-                await Task.Delay(500); // 等待清除完���
+                await Task.Delay(500); // 等待清除完
                 
                 // 模拟人工输
                 foreach (var c in phoneNumber)

@@ -4,7 +4,7 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.8.0</Version>
+    <Version>1.8.1</Version>
     <Authors>liangjie559567</Authors>
     <Company>TelegramAutomation</Company>
     <Description>Telegram频道自动化下载工具</Description>
@@ -19,19 +19,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="6.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.1" />
     <PackageReference Include="NLog" Version="5.2.8" />
     <PackageReference Include="Selenium.WebDriver" Version="4.18.1" />
-    <PackageReference Include="Selenium.Support" Version="4.18.1" />
     <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="$(ChromeDriverVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="6.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="6.0.0" />
-    <PackageReference Include="System.Text.Json" Version="6.0.9">
-      <NoWarn>NU1903</NoWarn>
-    </PackageReference>
-    <PackageReference Include="InputSimulator" Version="1.0.4">
-      <NoWarn>NU1701</NoWarn>
-    </PackageReference>
+    <PackageReference Include="WindowsInput" Version="6.4.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -42,40 +36,4 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
-  <Target Name="CopyChromeDriver" AfterTargets="Build">
-    <PropertyGroup>
-      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\$(ChromeDriverVersion)\driver\win32\chromedriver.exe</ChromeDriverPath>
-      <ChromeDriverTargetPath>$(OutDir)chromedriver.exe</ChromeDriverTargetPath>
-    </PropertyGroup>
-    
-    <Message Text="正在复制 ChromeDriver..." Importance="high" />
-    <Message Text="源路径: $(ChromeDriverPath)" Importance="high" />
-    <Message Text="目标路径: $(ChromeDriverTargetPath)" Importance="high" />
-    
-    <Error 
-      Text="ChromeDriver 文件不存在: $(ChromeDriverPath)" 
-      Condition="!Exists('$(ChromeDriverPath)')"
-    />
-    
-    <Copy 
-      SourceFiles="$(ChromeDriverPath)" 
-      DestinationFiles="$(ChromeDriverTargetPath)" 
-      SkipUnchangedFiles="true" 
-    />
-  </Target>
-
-  <Target Name="CopyChromeDriverOnPublish" AfterTargets="Publish">
-    <PropertyGroup>
-      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\$(ChromeDriverVersion)\driver\win32\chromedriver.exe</ChromeDriverPath>
-      <ChromeDriverPublishPath>$(PublishDir)chromedriver.exe</ChromeDriverPublishPath>
-    </PropertyGroup>
-    
-    <Message Text="正在复制 ChromeDriver 到发布目录..." Importance="high" />
-    <Copy 
-      SourceFiles="$(ChromeDriverPath)" 
-      DestinationFiles="$(ChromeDriverPublishPath)" 
-      SkipUnchangedFiles="true" 
-    />
-  </Target>
 </Project> 
