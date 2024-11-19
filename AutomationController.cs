@@ -16,6 +16,7 @@ using System.Reflection;
 using TelegramAutomation.Models;
 using TelegramAutomation.Services;
 using System.Diagnostics;
+using System.Collections.Concurrent;
 
 namespace TelegramAutomation
 {
@@ -31,6 +32,8 @@ namespace TelegramAutomation
         private CancellationTokenSource? _cancellationTokenSource;
         private readonly MessageProcessor _messageProcessor;
         private readonly DownloadManager _downloadManager;
+        private readonly ConcurrentDictionary<string, CancellationTokenSource> _downloadTokens;
+        private readonly ConcurrentDictionary<string, bool> _pausedDownloads;
 
         public AutomationController(DownloadConfiguration? config = null)
         {
@@ -41,6 +44,8 @@ namespace TelegramAutomation
             _downloadManager = new DownloadManager(_config);
             _messageProcessor = new MessageProcessor(_downloadManager, _config);
             _cancellationTokenSource = new CancellationTokenSource();
+            _downloadTokens = new ConcurrentDictionary<string, CancellationTokenSource>();
+            _pausedDownloads = new ConcurrentDictionary<string, bool>();
             
             // 记录环境信息
             LogEnvironmentInfo();
@@ -556,7 +561,7 @@ namespace TelegramAutomation
                         }
                         catch (Exception ex)
                         {
-                            _logger.Error(ex, $"检查路径失败: {path}");
+                            _logger.Error(ex, $"���查路径失败: {path}");
                         }
                     }
                 }
@@ -653,6 +658,74 @@ namespace TelegramAutomation
             {
                 _logger.Error(ex, "Error in HandleMethodAsync");
                 throw;
+            }
+        }
+
+        public void PauseDownload(string fileName)
+        {
+            _pausedDownloads.AddOrUpdate(fileName, true, (key, oldValue) => true);
+        }
+
+        public void ResumeDownload(string fileName)
+        {
+            _pausedDownloads.AddOrUpdate(fileName, false, (key, oldValue) => false);
+        }
+
+        public void CancelDownload(string fileName)
+        {
+            if (_downloadTokens.TryRemove(fileName, out var cts))
+            {
+                cts.Cancel();
+                cts.Dispose();
+            }
+        }
+
+        public async Task StartDownload(DownloadItem item, IProgress<int> progress, CancellationToken cancellationToken)
+        {
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _downloadTokens.TryAdd(item.FileName, cts);
+
+            try
+            {
+                item.Status = "下载中";
+                while (item.Progress < 100)
+                {
+                    if (cts.Token.IsCancellationRequested)
+                    {
+                        item.Status = "已取消";
+                        break;
+                    }
+
+                    if (_pausedDownloads.TryGetValue(item.FileName, out bool isPaused) && isPaused)
+                    {
+                        item.Status = "已暂停";
+                        await Task.Delay(1000, cts.Token);
+                        continue;
+                    }
+
+                    // 模拟下载进度
+                    await Task.Delay(100, cts.Token);
+                    item.Progress = Math.Min(item.Progress + 1, 100);
+                    progress.Report(item.Progress);
+                }
+
+                if (item.Progress >= 100)
+                {
+                    item.Status = "已完成";
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                item.Status = "已取消";
+            }
+            catch (Exception ex)
+            {
+                item.Status = "下载失败";
+                _logger.Error(ex, $"下载失败: {item.FileName}");
+            }
+            finally
+            {
+                _downloadTokens.TryRemove(item.FileName, out _);
             }
         }
     }
