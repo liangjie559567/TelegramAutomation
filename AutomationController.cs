@@ -629,7 +629,11 @@ namespace TelegramAutomation
                     throw new FileNotFoundException($"ChromeDriver not found at: {chromeDriverPath}");
                 }
                 
-                // ... initialization code ...
+                await Task.Run(() => {
+                    // 执行同步操作
+                    var chromeOptions = new ChromeOptions();
+                    _driver = new ChromeDriver(chromeOptions);
+                });
             }
             catch (Exception ex)
             {
@@ -643,7 +647,7 @@ namespace TelegramAutomation
             try
             {
                 await Task.Delay(100); // 添加实际的异步操作
-                // ... other code ...
+                // ... other async operations ...
             }
             catch (Exception ex)
             {
