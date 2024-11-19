@@ -46,88 +46,22 @@ namespace TelegramAutomation
         {
             try
             {
-                var options = new ChromeOptions();
-                options.AddArgument("--disable-gpu");
-                options.AddArgument("--no-sandbox");
-                options.AddArgument("--disable-dev-shm-usage");
-                options.AddArgument("--disable-web-security");
-                options.AddArgument("--allow-running-insecure-content");
+                var chromeOptions = new ChromeOptions();
+                chromeOptions.AddArguments("--start-maximized");
                 
-                options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+                // 获取 Chrome 版本
+                var chromeVersion = GetChromeVersion();
+                _logger.Info($"检测到 Chrome 版本: {chromeVersion}");
                 
-                var downloadPath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                    "TelegramDownloads"
+                // 检查 ChromeDriver 版本是否匹配
+                var driverPath = await EnsureCorrectChromeDriver(chromeVersion);
+                
+                var service = ChromeDriverService.CreateDefaultService(
+                    Path.GetDirectoryName(driverPath),
+                    Path.GetFileName(driverPath)
                 );
-                Directory.CreateDirectory(downloadPath);
                 
-                options.AddUserProfilePreference("download.default_directory", downloadPath);
-                options.AddUserProfilePreference("download.prompt_for_download", false);
-                options.AddUserProfilePreference("safebrowsing.enabled", true);
-
-                var possiblePaths = new List<string>
-                {
-                    Path.Combine(Directory.GetCurrentDirectory(), "chromedriver.exe"),
-                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "chromedriver.exe"),
-                    Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "chromedriver.exe"),
-                    Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                        ".nuget",
-                        "packages",
-                        "selenium.webdriver.chromedriver",
-                        "122.0.6261.5700",
-                        "driver",
-                        "win32",
-                        "chromedriver.exe"
-                    )
-                };
-
-                string? driverPath = null;
-                foreach (var path in possiblePaths.Where(p => !string.IsNullOrEmpty(p)))
-                {
-                    _logger.Info($"检查 ChromeDriver 路径: {path}");
-                    if (File.Exists(path))
-                    {
-                        driverPath = path;
-                        _logger.Info($"找到 ChromeDriver: {path}");
-                        break;
-                    }
-                }
-
-                if (driverPath == null)
-                {
-                    var nugetPath = Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                        ".nuget",
-                        "packages",
-                        "selenium.webdriver.chromedriver",
-                        "122.0.6261.5700",
-                        "driver",
-                        "win32",
-                        "chromedriver.exe"
-                    );
-
-                    if (File.Exists(nugetPath))
-                    {
-                        var targetPath = Path.Combine(Directory.GetCurrentDirectory(), "chromedriver.exe");
-                        _logger.Info($"正在从 NuGet 包复制 ChromeDriver 到: {targetPath}");
-                        File.Copy(nugetPath, targetPath, true);
-                        driverPath = targetPath;
-                    }
-                    else
-                    {
-                        throw new FileNotFoundException("ChromeDriver 未找到，请确保 chromedriver.exe 在应用程序目录中。已检查的路径：\n" + 
-                            string.Join("\n", possiblePaths));
-                    }
-                }
-
-                var service = ChromeDriverService.CreateDefaultService(Path.GetDirectoryName(driverPath));
-                service.HideCommandPromptWindow = true;
-
-                _driver = new ChromeDriver(service, options);
-                _driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(30);
-                _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
-
+                _driver = new ChromeDriver(service, chromeOptions);
                 _logger.Info("浏览器初始化成功");
             }
             catch (Exception ex)
@@ -135,6 +69,30 @@ namespace TelegramAutomation
                 _logger.Error(ex, "初始化浏览器失败");
                 throw;
             }
+        }
+
+        private string GetChromeVersion()
+        {
+            var chromePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                @"Google\Chrome\Application\chrome.exe"
+            );
+            
+            if (!File.Exists(chromePath))
+            {
+                chromePath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    @"Google\Chrome\Application\chrome.exe"
+                );
+            }
+            
+            if (File.Exists(chromePath))
+            {
+                var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
+                return versionInfo.FileVersion ?? "unknown";
+            }
+            
+            throw new FileNotFoundException("未找到 Chrome 浏览器");
         }
 
         public async Task NavigateToTelegram()

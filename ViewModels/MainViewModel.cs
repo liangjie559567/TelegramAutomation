@@ -278,17 +278,19 @@ namespace TelegramAutomation.ViewModels
 
         private async Task RequestVerificationCode()
         {
-            if (string.IsNullOrWhiteSpace(PhoneNumber) || !PhoneNumber.StartsWith("+"))
-            {
-                AddLog("错误: 请输入正确的手机号码格式（以+开头）");
-                return;
-            }
-
             try
             {
                 IsRequestingCode = true;
                 Status = "正在发送验证码...";
                 AddLog($"正在发送验证码到 {PhoneNumber}...");
+                
+                // 检查 Chrome 是否安装
+                if (!IsChromeInstalled())
+                {
+                    AddLog("错误: 未检测到 Chrome 浏览器，请先安装 Chrome");
+                    Status = "请安装 Chrome";
+                    return;
+                }
                 
                 await _controller.InitializeBrowser();
                 await _controller.NavigateToTelegram();
@@ -297,12 +299,11 @@ namespace TelegramAutomation.ViewModels
                 AddLog("验证码已发送，请查收");
                 Status = "等待验证码";
             }
-            catch (WebDriverException ex)
+            catch (FileNotFoundException ex)
             {
-                AddLog($"浏览器操作失败: {ex.Message}");
-                AddLog("请确保已安装最新版本的Chrome浏览器");
-                Status = "发送失败";
-                _logger.Error(ex, "浏览器操作失败");
+                AddLog(ex.Message);
+                AddLog("请确保程序完整性或重新安装程序");
+                Status = "组件缺失";
             }
             catch (Exception ex)
             {
@@ -314,6 +315,15 @@ namespace TelegramAutomation.ViewModels
             {
                 IsRequestingCode = false;
             }
+        }
+
+        private bool IsChromeInstalled()
+        {
+            var chromePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                @"Google\Chrome\Application\chrome.exe"
+            );
+            return File.Exists(chromePath);
         }
 
         private async Task Login()
