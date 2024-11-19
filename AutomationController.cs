@@ -446,6 +446,35 @@ namespace TelegramAutomation
             }
         }
 
+        private void LogEnvironmentInfo()
+        {
+            try
+            {
+                _logger.Info("=== 环境信息 ===");
+                _logger.Info($"操作系统: {Environment.OSVersion}");
+                _logger.Info($"64位系统: {Environment.Is64BitOperatingSystem}");
+                _logger.Info($"64位进程: {Environment.Is64BitProcess}");
+                _logger.Info($"当前目录: {Environment.CurrentDirectory}");
+                _logger.Info($"程序目录: {AppDomain.CurrentDomain.BaseDirectory}");
+                _logger.Info($"系统目录: {Environment.SystemDirectory}");
+                _logger.Info($"临时目录: {Path.GetTempPath()}");
+                _logger.Info($"用户配置文件: {Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}");
+                _logger.Info($"程序文件目录: {Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)}");
+                _logger.Info($"程序文件(x86)目录: {Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)}");
+                _logger.Info($"本地应用数据: {Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)}");
+                _logger.Info("=== 环境变量 ===");
+                foreach (var env in Environment.GetEnvironmentVariables().Keys)
+                {
+                    _logger.Info($"{env}: {Environment.GetEnvironmentVariable(env?.ToString() ?? "")}");
+                }
+                _logger.Info("===============");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "获取环境信息失败");
+            }
+        }
+
         private async Task<string> EnsureCorrectChromeDriver(string chromeVersion)
         {
             try
