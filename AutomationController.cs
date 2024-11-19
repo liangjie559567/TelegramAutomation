@@ -26,7 +26,7 @@ namespace TelegramAutomation
         private IWebDriver? _driver;
         private bool _disposed;
         private readonly SemaphoreSlim _downloadSemaphore;
-        private readonly InputSimulator _inputSimulator;
+        private readonly IInputSimulator _inputSimulator;
         private readonly IKeyboardSimulator _keyboard;
         private CancellationTokenSource? _cancellationTokenSource;
         private readonly MessageProcessor _messageProcessor;
@@ -486,7 +486,7 @@ namespace TelegramAutomation
                 var driverPath = Path.Combine(baseDir, "chromedriver.exe");
                 _logger.Info($"目标 ChromeDriver 路径: {driverPath}");
 
-                // 获取 NuGet 包根目录
+                // 获取 NuGet 包根目��
                 var nugetRoot = Environment.GetEnvironmentVariable("NUGET_PACKAGES") 
                     ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
                 _logger.Info($"NuGet 包根目录: {nugetRoot}");
