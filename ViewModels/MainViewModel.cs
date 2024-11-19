@@ -10,6 +10,8 @@ using OpenQA.Selenium;
 using NLog;
 using TelegramAutomation.Models;
 using TelegramAutomation.Services;
+using System.Diagnostics;
+using Microsoft.Win32;
 
 namespace TelegramAutomation.ViewModels
 {
@@ -319,11 +321,59 @@ namespace TelegramAutomation.ViewModels
 
         private bool IsChromeInstalled()
         {
-            var chromePath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-                @"Google\Chrome\Application\chrome.exe"
-            );
-            return File.Exists(chromePath);
+            try
+            {
+                // 检查所有可能的 Chrome 安装路径
+                var possiblePaths = new[]
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe"),
+                    @"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                    @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+                };
+
+                foreach (var path in possiblePaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        _logger.Info($"找到 Chrome 浏览器: {path}");
+                        var versionInfo = FileVersionInfo.GetVersionInfo(path);
+                        if (!string.IsNullOrEmpty(versionInfo.FileVersion))
+                        {
+                            _logger.Info($"Chrome 版本: {versionInfo.FileVersion}");
+                            return true;
+                        }
+                    }
+                }
+
+                // 如果上面的路径都没找到，尝试通过注册表查找
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe"))
+                {
+                    if (key != null)
+                    {
+                        var chromePath = key.GetValue(null) as string;
+                        if (!string.IsNullOrEmpty(chromePath) && File.Exists(chromePath))
+                        {
+                            _logger.Info($"通过注册表找到 Chrome: {chromePath}");
+                            var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
+                            if (!string.IsNullOrEmpty(versionInfo.FileVersion))
+                            {
+                                _logger.Info($"Chrome 版本: {versionInfo.FileVersion}");
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                _logger.Error("未找到 Chrome 浏览器");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "检查 Chrome 安装失败");
+                return false;
+            }
         }
 
         private async Task Login()
