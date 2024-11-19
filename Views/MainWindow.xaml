@@ -41,6 +41,19 @@
                              VerticalContentAlignment="Center"
                              Text="{Binding VerificationCode, UpdateSourceTrigger=PropertyChanged}"/>
                 </DockPanel>
+                
+                <!-- 添加登录状态提示 -->
+                <TextBlock x:Name="LoginStatusText" 
+                          Text="{Binding LoginStatusMessage}"
+                          Margin="0,5"
+                          Foreground="{Binding LoginStatusColor}"
+                          TextWrapping="Wrap"/>
+                
+                <!-- 添加进度条 -->
+                <ProgressBar x:Name="LoginProgressBar"
+                            Height="2"
+                            Margin="0,5"
+                            IsIndeterminate="{Binding IsLoggingIn}"/>
             </StackPanel>
         </GroupBox>
 

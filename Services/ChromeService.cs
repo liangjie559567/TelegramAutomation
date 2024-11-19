@@ -10,24 +10,38 @@ namespace TelegramAutomation.Services
     public class ChromeService
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
-        private readonly AppSettings _settings;
+        private readonly string[] _searchPaths;
+        private const string MINIMUM_CHROME_VERSION = "131.0.6778.86";
 
         public ChromeService(AppSettings settings)
         {
-            _settings = settings;
+            _searchPaths = settings.SearchPaths;
         }
 
-        public bool IsChromeInstalled()
+        public async Task<bool> ValidateChromeEnvironment()
         {
             try
             {
-                var chromePath = FindChromePath();
-                return !string.IsNullOrEmpty(chromePath);
+                // 检查 Chrome 是否安装
+                var chromePath = await DetectChromePath();
+                if (string.IsNullOrEmpty(chromePath))
+                {
+                    throw new Exception("CHROME_NOT_FOUND");
+                }
+
+                // 检查 Chrome 版本
+                var version = GetChromeVersion(chromePath);
+                if (CompareVersions(version, MINIMUM_CHROME_VERSION) < 0)
+                {
+                    throw new Exception($"CHROME_VERSION_MISMATCH: 当前版本 {version}, 需要 {MINIMUM_CHROME_VERSION} 或更高版本");
+                }
+
+                return true;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "检查 Chrome 安装失败");
-                return false;
+                _logger.Error(ex, "Chrome 环境验证失败");
+                throw;
             }
         }
 
@@ -43,7 +57,7 @@ namespace TelegramAutomation.Services
                         @"Google\Chrome\Application\chrome.exe")
                 };
 
-                var allPaths = defaultPaths.Concat(_settings.ChromeDriver.SearchPaths);
+                var allPaths = defaultPaths.Concat(_searchPaths);
                 
                 foreach (var path in allPaths)
                 {

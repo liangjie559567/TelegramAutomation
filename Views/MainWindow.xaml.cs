@@ -12,12 +12,15 @@ namespace TelegramAutomation.Views
     public partial class MainWindow : Window
     {
         private readonly MainViewModel _viewModel;
+        private readonly ObservableCollection<DownloadItem> DownloadItems;
 
         public MainWindow()
         {
             InitializeComponent();
             _viewModel = new MainViewModel();
             DataContext = _viewModel;
+            DownloadItems = new ObservableCollection<DownloadItem>();
+            DownloadListView.ItemsSource = DownloadItems;
             InitializeEventHandlers();
         }
 
@@ -26,23 +29,35 @@ namespace TelegramAutomation.Views
             // 手机号码输入框
             PhoneNumberTextBox.TextChanged += (s, e) =>
             {
-                // 可以在这里添加输入验证逻辑
-                GetCodeButton.IsEnabled = !string.IsNullOrWhiteSpace(PhoneNumberTextBox.Text);
+                if (_viewModel.ValidatePhoneNumber(PhoneNumberTextBox.Text.Trim()))
+                {
+                    PhoneNumberTextBox.BorderBrush = System.Windows.Media.Brushes.Green;
+                    GetCodeButton.IsEnabled = true;
+                }
+                else
+                {
+                    PhoneNumberTextBox.BorderBrush = System.Windows.Media.Brushes.Red;
+                    GetCodeButton.IsEnabled = false;
+                }
             };
 
             // 验证码输入框
             VerificationCodeTextBox.TextChanged += (s, e) =>
             {
-                // 可以在这里添加输入验证逻辑
-                LoginButton.IsEnabled = !string.IsNullOrWhiteSpace(VerificationCodeTextBox.Text);
+                var code = VerificationCodeTextBox.Text.Trim();
+                LoginButton.IsEnabled = !string.IsNullOrWhiteSpace(code) && code.Length >= 5;
+            };
+
+            // 频道链接输入框
+            ChannelLinkTextBox.TextChanged += (s, e) =>
+            {
+                UpdateStartButtonState();
             };
 
             // 保存路径输入框
             SavePathTextBox.TextChanged += (s, e) =>
             {
-                // 可以在这里添加路径验证逻辑
-                StartButton.IsEnabled = !string.IsNullOrWhiteSpace(SavePathTextBox.Text) 
-                    && !string.IsNullOrWhiteSpace(ChannelLinkTextBox.Text);
+                UpdateStartButtonState();
             };
 
             // 获取验证码按钮
@@ -53,23 +68,11 @@ namespace TelegramAutomation.Views
                     GetCodeButton.IsEnabled = false;
                     StatusText.Text = "正在发送验证码...";
                     
-                    string phoneNumber = PhoneNumberTextBox.Text.Trim();
-                    if (string.IsNullOrEmpty(phoneNumber))
-                    {
-                        MessageBox.Show("请输入手机号码", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        return;
-                    }
-
-                    await _controller.InitializeBrowser();
-                    await _controller.NavigateToTelegram();
-                    await _controller.RequestVerificationCode(phoneNumber);
-                    
-                    StatusText.Text = "验证码已发送";
+                    await _viewModel.RequestVerificationCode();
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show($"发送验证码失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    StatusText.Text = "发送验证码失败";
                 }
                 finally
                 {
@@ -85,22 +88,16 @@ namespace TelegramAutomation.Views
                     LoginButton.IsEnabled = false;
                     StatusText.Text = "正在登录...";
                     
-                    string phoneNumber = PhoneNumberTextBox.Text.Trim();
-                    string code = VerificationCodeTextBox.Text.Trim();
+                    await _viewModel.Login();
                     
-                    if (string.IsNullOrEmpty(code))
+                    if (_viewModel.IsLoggedIn)
                     {
-                        MessageBox.Show("请输入验证码", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        return;
+                        EnableDownloadControls(true);
                     }
-
-                    await _controller.Login(phoneNumber, code);
-                    StatusText.Text = "登录成功";
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show($"登录失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    StatusText.Text = "登录失败";
                 }
                 finally
                 {
@@ -111,15 +108,16 @@ namespace TelegramAutomation.Views
             // 浏览按钮
             BrowseButton.Click += (s, e) =>
             {
-                var dialog = new FolderBrowserDialog
+                using var dialog = new FolderBrowserDialog
                 {
                     Description = "选择下载文件保存位置",
-                    UseDescriptionForTitle = true
+                    UseDescriptionForTitle = true,
+                    SelectedPath = _viewModel.SavePath
                 };
 
                 if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                 {
-                    SavePathTextBox.Text = dialog.SelectedPath;
+                    _viewModel.SavePath = dialog.SelectedPath;
                 }
             };
 
@@ -128,44 +126,28 @@ namespace TelegramAutomation.Views
             {
                 try
                 {
-                    StartButton.IsEnabled = false;
-                    StatusText.Text = "正在下载...";
-                    
-                    string channelLink = ChannelLinkTextBox.Text.Trim();
-                    string savePath = SavePathTextBox.Text.Trim();
-                    
-                    if (string.IsNullOrEmpty(channelLink) || string.IsNullOrEmpty(savePath))
+                    if (!_viewModel.IsLoggedIn)
                     {
-                        MessageBox.Show("请输入频道链接和保存路径", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        MessageBox.Show("请先登录", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                         return;
                     }
 
-                    // 创建下载项
-                    var downloadItem = new DownloadItem
-                    {
-                        FileName = $"文件_{DateTime.Now:yyyyMMddHHmmss}",
-                        FileSize = 1024 * 1024, // 1MB 示例
-                        Status = "准备中"
-                    };
-                    
-                    DownloadItems.Add(downloadItem);
+                    StartButton.IsEnabled = false;
+                    PauseButton.IsEnabled = true;
+                    StopButton.IsEnabled = true;
+                    StatusText.Text = "正在下载...";
 
-                    var progress = new Progress<int>(value =>
-                    {
-                        downloadItem.Progress = value;
-                    });
-
-                    _cancellationTokenSource = new CancellationTokenSource();
-                    await _controller.StartDownload(downloadItem, progress, _cancellationTokenSource.Token);
+                    await _viewModel.StartAutomation();
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show($"下载失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    StatusText.Text = "下载失败";
                 }
                 finally
                 {
                     StartButton.IsEnabled = true;
+                    PauseButton.IsEnabled = false;
+                    StopButton.IsEnabled = false;
                 }
             };
 
@@ -175,18 +157,7 @@ namespace TelegramAutomation.Views
                 var selectedItem = DownloadListView.SelectedItem as DownloadItem;
                 if (selectedItem != null)
                 {
-                    if (selectedItem.IsPaused)
-                    {
-                        _controller.ResumeDownload(selectedItem.FileName);
-                        selectedItem.IsPaused = false;
-                        selectedItem.Status = "下载中";
-                    }
-                    else
-                    {
-                        _controller.PauseDownload(selectedItem.FileName);
-                        selectedItem.IsPaused = true;
-                        selectedItem.Status = "已暂停";
-                    }
+                    _viewModel.PauseDownload(selectedItem);
                 }
             };
 
@@ -196,18 +167,30 @@ namespace TelegramAutomation.Views
                 var selectedItem = DownloadListView.SelectedItem as DownloadItem;
                 if (selectedItem != null)
                 {
-                    _controller.CancelDownload(selectedItem.FileName);
-                    selectedItem.Status = "已取消";
+                    _viewModel.StopDownload(selectedItem);
                 }
             };
 
             // 窗口关闭时清理资源
             this.Closed += (s, e) =>
             {
-                _cancellationTokenSource?.Cancel();
-                _cancellationTokenSource?.Dispose();
-                _controller.Dispose();
+                _viewModel.Dispose();
             };
+        }
+
+        private void UpdateStartButtonState()
+        {
+            StartButton.IsEnabled = !string.IsNullOrWhiteSpace(ChannelLinkTextBox.Text) 
+                && !string.IsNullOrWhiteSpace(SavePathTextBox.Text)
+                && _viewModel.IsLoggedIn;
+        }
+
+        private void EnableDownloadControls(bool enable)
+        {
+            ChannelLinkTextBox.IsEnabled = enable;
+            SavePathTextBox.IsEnabled = enable;
+            BrowseButton.IsEnabled = enable;
+            UpdateStartButtonState();
         }
     }
 } 

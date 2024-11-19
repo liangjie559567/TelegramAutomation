@@ -17,234 +17,199 @@ using TelegramAutomation.Models;
 using TelegramAutomation.Services;
 using System.Diagnostics;
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Configuration;
+using System.Text.Json;
+using TelegramAutomation.Exceptions;
+using TelegramAutomation.Helpers;
 
 namespace TelegramAutomation
 {
     public class AutomationController : IDisposable
     {
+        private const string SESSION_FILE = "session.json";
+        
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
-        private readonly DownloadConfiguration _config;
-        private IWebDriver? _driver;
-        private bool _disposed;
-        private readonly SemaphoreSlim _downloadSemaphore;
-        private readonly IInputSimulator _inputSimulator;
-        private readonly IKeyboardSimulator _keyboard;
-        private CancellationTokenSource? _cancellationTokenSource;
-        private readonly MessageProcessor _messageProcessor;
-        private readonly DownloadManager _downloadManager;
-        private readonly ConcurrentDictionary<string, CancellationTokenSource> _downloadTokens;
-        private readonly ConcurrentDictionary<string, bool> _pausedDownloads;
+        private readonly IWebDriver _driver;
+        private readonly WebDriverWait _wait;
+        private bool _isLoggedIn;
+        private readonly AppSettings _config;
+        private string _currentPhoneNumber = string.Empty;
+        private readonly int MAX_LOGIN_RETRIES = 3;
+        private readonly int[] RETRY_DELAYS = { 1000, 2000, 5000 }; // 递增延迟
+        private readonly TimeSpan LOGIN_TIMEOUT = TimeSpan.FromMinutes(2);
+        private const int MAX_LOGIN_ATTEMPTS = 3;
+        private const int LOGIN_TIMEOUT_SECONDS = 120;
 
-        public AutomationController(DownloadConfiguration? config = null)
+        private readonly Dictionary<string, By> _loginElements = new()
         {
-            _config = config ?? new DownloadConfiguration();
-            _downloadSemaphore = new SemaphoreSlim(_config.MaxConcurrentDownloads);
-            _inputSimulator = new InputSimulator();
-            _keyboard = _inputSimulator.Keyboard;
-            _downloadManager = new DownloadManager(_config);
-            _messageProcessor = new MessageProcessor(_downloadManager, _config);
-            _cancellationTokenSource = new CancellationTokenSource();
-            _downloadTokens = new ConcurrentDictionary<string, CancellationTokenSource>();
-            _pausedDownloads = new ConcurrentDictionary<string, bool>();
+            { "PhoneInput", By.CssSelector("input[type='tel'][aria-label='Phone number']") },
+            { "NextButton", By.CssSelector("button[type='submit'][aria-label='Next']") },
+            { "CodeInput", By.CssSelector("input.form-control[inputmode='numeric'][aria-label='Code']") },
+            { "SignInButton", By.CssSelector("button[type='submit'][aria-label='Sign In']") },
+            { "UserInfo", By.CssSelector("div.user-info") },
+            { "ChatList", By.CssSelector("div.chat-list") },
+            { "ErrorMessage", By.CssSelector("div.error-message, div.alert-error") },
+            { "LoadingIndicator", By.CssSelector("div.loading-progress") }
+        };
+
+        // 添加重试配置
+        private const int MAX_RETRY_ATTEMPTS = 3;
+        private const int DEFAULT_TIMEOUT = 30; // 默认超时时间（秒）
+        private const int ELEMENT_TIMEOUT = 10; // 元素等待超时时间（秒）
+
+        public AutomationController()
+        {
+            _config = LoadConfiguration();
+            _driver = InitializeWebDriver();
+            _wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(_config.WaitTimeout));
+        }
+
+        private AppSettings LoadConfiguration()
+        {
+            // 从配置文件加载设置
+            var config = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build()
+                .Get<AppSettings>();
+
+            return config ?? new AppSettings();
+        }
+
+        private IWebDriver InitializeWebDriver()
+        {
+            var options = new ChromeOptions();
+            options.AddArgument("--start-maximized");
+            options.AddArgument("--disable-notifications");
             
-            // 记录环境信息
-            LogEnvironmentInfo();
-        }
-
-        public async Task InitializeBrowser()
-        {
-            try
-            {
-                var chromeOptions = new ChromeOptions();
-                chromeOptions.AddArguments("--start-maximized");
-                
-                // 获取 Chrome 版本
-                var chromeVersion = GetChromeVersion();
-                _logger.Info($"检测到 Chrome 版本: {chromeVersion}");
-                
-                // 检查 ChromeDriver 版本是否匹配
-                var driverPath = await EnsureCorrectChromeDriver(chromeVersion);
-                
-                var service = ChromeDriverService.CreateDefaultService(
-                    Path.GetDirectoryName(driverPath),
-                    Path.GetFileName(driverPath)
-                );
-                
-                _driver = new ChromeDriver(service, chromeOptions);
-                _logger.Info("浏览器初始化成功");
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "初始化浏览器失败");
-                throw;
-            }
-        }
-
-        private string GetChromeVersion()
-        {
-            try
-            {
-                // 检查所有可能的 Chrome 安装路径
-                var possiblePaths = new[]
-                {
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe"),
-                    @"C:\Program Files\Google\Chrome\Application\chrome.exe",
-                    @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
-                };
-
-                foreach (var path in possiblePaths)
-                {
-                    if (File.Exists(path))
-                    {
-                        _logger.Info($"找到 Chrome 浏览器: {path}");
-                        var versionInfo = FileVersionInfo.GetVersionInfo(path);
-                        var version = versionInfo.FileVersion;
-                        if (!string.IsNullOrEmpty(version))
-                        {
-                            _logger.Info($"Chrome 版本: {version}");
-                            return version;
-                        }
-                    }
-                }
-
-                // 如果上面的路径都没找到，尝试通过注册表查找
-                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe"))
-                {
-                    if (key != null)
-                    {
-                        var chromePath = key.GetValue(null) as string;
-                        if (!string.IsNullOrEmpty(chromePath) && File.Exists(chromePath))
-                        {
-                            _logger.Info($"通过注册表找到 Chrome: {chromePath}");
-                            var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
-                            var version = versionInfo.FileVersion;
-                            if (!string.IsNullOrEmpty(version))
-                            {
-                                _logger.Info($"Chrome 版本: {version}");
-                                return version;
-                            }
-                        }
-                    }
-                }
-
-                _logger.Error("未找到 Chrome 浏览器，已检查以下路径:");
-                foreach (var path in possiblePaths)
-                {
-                    _logger.Error($"- {path}");
-                }
-                throw new FileNotFoundException("未找到 Chrome 浏览器，请确保已正确安装 Chrome");
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "获取 Chrome 版本失败");
-                throw new Exception("获取 Chrome 版本失败，请确保已正确安装 Chrome", ex);
-            }
-        }
-
-        public async Task NavigateToTelegram()
-        {
-            if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
-            
-            try
-            {
-                await Task.Run(() => 
-                {
-                    _driver.Navigate().GoToUrl("https://web.telegram.org/");
-                    var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(30));
-                    wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
-                });
-                _logger.Info("导航到Telegram网页成功");
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "导航到Telegram网页失败");
-                throw;
-            }
+            return new ChromeDriver(options);
         }
 
         public async Task RequestVerificationCode(string phoneNumber)
         {
+            _logger.LogMethodEntry();
             try
             {
-                if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
+                if (string.IsNullOrWhiteSpace(phoneNumber))
+                    throw new LoginException("手机号码不能为空", "PHONE_NUMBER_EMPTY");
 
-                // 等待登录页面加载完成
-                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(30));
-                wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
-
-                // 等待手机号输入框出现
-                var phoneInput = await RetryOperation(async () =>
-                {
-                    var input = wait.Until(d => d.FindElement(By.CssSelector("input[type='tel']")));
-                    if (!input.Displayed || !input.Enabled)
-                        throw new ElementNotInteractableException("手机号输入框不可交互");
-                    return input;
-                }, maxRetries: 3);
-
-                // 清除并输入手机号码
-                phoneInput.Clear();
-                await Task.Delay(500); // 等待清除完
+                _logger.Info($"开始请求验证码: {phoneNumber}");
                 
-                // 模拟人工输
-                foreach (var c in phoneNumber)
-                {
-                    SimulateKeyPress(c.ToString());
-                    await Task.Delay(Random.Shared.Next(50, 150)); // 随机延迟
-                }
-
-                // 等待并点击下一步按钮
-                var nextButton = await RetryOperation(async () =>
-                {
-                    var button = wait.Until(d => d.FindElement(By.CssSelector("button[type='submit']")));
-                    if (!button.Displayed || !button.Enabled)
-                        throw new ElementNotInteractableException("下一步按钮不可点击");
-                    return button;
-                }, maxRetries: 3);
-
-                nextButton.Click();
+                await EnsureLoginPageLoaded();
+                var phoneInput = await WaitForElementInteractive(_loginElements["PhoneInput"]);
+                await ClearAndTypeWithDelay(phoneInput, phoneNumber);
                 
-                // 验证是否成功发送验证码
-                try
-                {
-                    wait.Until(d => d.FindElement(By.CssSelector("input[type='text']")));
-                    _logger.Info($"已成功发验证码到 {phoneNumber}");
-                }
-                catch (WebDriverTimeoutException)
-                {
-                    throw new Exception("验证码发送失，请检查手机号码是否正确");
-                }
-            }
-            catch (WebDriverException ex)
-            {
-                _logger.Error(ex, "浏览器操作失败");
-                throw new Exception("浏览器操作失败，请检查网络连接", ex);
+                var nextButton = await WaitForElementInteractive(_loginElements["NextButton"]);
+                await ClickWithRetry(nextButton);
+                
+                _logger.LogOperationResult(true, "发送验证码");
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "请求验证码失败");
-                throw;
+                _logger.LogException(ex, "请求验证码失败");
+                throw new LoginException("请求验证码失败", "VERIFICATION_CODE_REQUEST_FAILED", ex);
+            }
+            finally
+            {
+                _logger.LogMethodExit();
             }
         }
 
-        public async Task Login(string phoneNumber, string verificationCode)
+        private async Task<IWebElement> WaitForElementInteractive(By locator, int timeoutSeconds = 10)
+        {
+            var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
+            return await wait.Until(d => {
+                try
+                {
+                    var element = d.FindElement(locator);
+                    if (!element.Displayed || !element.Enabled)
+                        return null;
+                    
+                    // 检查元素是否被其他元素遮挡
+                    var clickable = (bool)((IJavaScriptExecutor)d).ExecuteScript(@"
+                        var elem = arguments[0];
+                        var rect = elem.getBoundingClientRect();
+                        var cx = rect.left + rect.width/2;
+                        var cy = rect.top + rect.height/2;
+                        return document.elementFromPoint(cx, cy) === elem;", element);
+                    
+                    return clickable ? element : null;
+                }
+                catch
+                {
+                    return null;
+                }
+            });
+        }
+
+        private async Task ClearAndTypeWithDelay(IWebElement element, string text)
+        {
+            element.Clear();
+            await Task.Delay(500);
+            
+            foreach (var c in text)
+            {
+                element.SendKeys(c.ToString());
+                await Task.Delay(Random.Shared.Next(50, 150));
+            }
+        }
+
+        private async Task ClickWithRetry(IWebElement element, int maxRetries = 3)
+        {
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    element.Click();
+                    return;
+                }
+                catch (ElementClickInterceptedException)
+                {
+                    if (i == maxRetries - 1) throw;
+                    await Task.Delay(500);
+                }
+            }
+        }
+
+        public async Task<bool> LoginWithRetry(string phoneNumber, string verificationCode)
+        {
+            int attempts = 0;
+            while (attempts < MAX_LOGIN_ATTEMPTS)
+            {
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(LOGIN_TIMEOUT_SECONDS));
+                    await LoginWithTimeout(phoneNumber, verificationCode, cts.Token);
+                    return true;
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.Warn($"登录超时 (尝试 {attempts + 1}/{MAX_LOGIN_ATTEMPTS})");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, $"登录失败 (尝试 {attempts + 1}/{MAX_LOGIN_ATTEMPTS})");
+                }
+
+                attempts++;
+                if (attempts < MAX_LOGIN_ATTEMPTS)
+                {
+                    await Task.Delay(RETRY_DELAYS[attempts - 1]);
+                }
+            }
+
+            return false;
+        }
+
+        private async Task LoginWithTimeout(string phoneNumber, string verificationCode, CancellationToken token)
         {
             try
             {
-                if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
-
-                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(30));
+                _logger.Info($"开始登录: {phoneNumber}");
 
                 // 等待验证码输入框出现
-                var codeInput = await RetryOperation(async () =>
-                {
-                    var input = wait.Until(d => d.FindElement(By.CssSelector("input[type='text']")));
-                    if (!input.Displayed || !input.Enabled)
-                        throw new ElementNotInteractableException("验证码输入框不可交互");
-                    return input;
-                }, maxRetries: 3);
-
+                var codeInput = _wait.Until(d => d.FindElement(By.CssSelector("input[type='text']")));
+                
                 // 清除并输入验证码
                 codeInput.Clear();
                 await Task.Delay(500);
@@ -256,69 +221,77 @@ namespace TelegramAutomation
                     await Task.Delay(Random.Shared.Next(50, 150));
                 }
 
-                // 等待登录按钮可点击
-                var loginButton = await RetryOperation(async () =>
-                {
-                    var button = wait.Until(d => d.FindElement(By.CssSelector("button[type='submit']")));
-                    if (!button.Displayed || !button.Enabled)
-                        throw new ElementNotInteractableException("登录按钮不可点击");
-                    return button;
-                }, maxRetries: 3);
-
+                // 点击登录按钮
+                var loginButton = _wait.Until(d => d.FindElement(By.CssSelector("button[type='submit']")));
                 loginButton.Click();
 
                 // 等待登录完成
                 await Task.Delay(_config.LoginWaitTime);
 
                 // 验证登录状态
-                try
-                {
-                    // 检查多个可能的登录成功标志
-                    var isLoggedIn = await RetryOperation(async () =>
-                    {
-                        try
-                        {
-                            // 尝试查找聊天列表
-                            wait.Until(d => d.FindElement(By.CssSelector(".chat-list")));
-                            return true;
-                        }
-                        catch
-                        {
-                            try
-                            {
-                                // 尝试查找其他登录成功标志
-                                wait.Until(d => d.FindElement(By.CssSelector(".messages-container")));
-                                return true;
-                            }
-                            catch
-                            {
-                                return false;
-                            }
-                        }
-                    }, maxRetries: 3);
+                _isLoggedIn = await VerifyLoginStatus();
 
-                    if (!isLoggedIn)
-                    {
-                        throw new Exception("登录失败，请检查验证码是否正确");
-                    }
-
-                    _logger.Info("登录成功");
-                }
-                catch (WebDriverTimeoutException)
+                if (!_isLoggedIn)
                 {
-                    throw new Exception("登录超时，请重试");
+                    throw new Exception("登录验证失败");
                 }
-            }
-            catch (WebDriverException ex)
-            {
-                _logger.Error(ex, "浏览器操作失败");
-                throw new Exception("浏览器操作失败，请检查网络连接", ex);
+
+                _logger.Info("登录成功");
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "登录失败");
                 throw;
             }
+        }
+
+        private async Task<bool> VerifyLoginStatus()
+        {
+            try
+            {
+                // 检多个可能的登录成功标志
+                var checks = new List<Func<IWebDriver, bool>>
+                {
+                    d => d.FindElements(By.CssSelector(".chat-list")).Count > 0,
+                    d => d.FindElements(By.CssSelector(".messages-container")).Count > 0,
+                    d => d.FindElements(By.CssSelector(".tgme_page_extra")).Count > 0
+                };
+
+                foreach (var check in checks)
+                {
+                    try
+                    {
+                        if (await Task.Run(() => check(_driver)))
+                            return true;
+                    }
+                    catch (StaleElementReferenceException)
+                    {
+                        // 元素可能已更新，继续检查下一个
+                        continue;
+                    }
+                }
+
+                // 检查是否存在错误消息
+                var errorElements = _driver.FindElements(By.CssSelector(".error-message, .alert-error"));
+                if (errorElements.Any())
+                {
+                    _logger.Error($"登录失败: {errorElements.First().Text}");
+                    return false;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "验证登录状态时发生错误");
+                return false;
+            }
+        }
+
+        private void SimulateKeyPress(string key)
+        {
+            var sim = new InputSimulator();
+            sim.Keyboard.TextEntry(key);
         }
 
         private async Task<T> RetryOperation<T>(Func<Task<T>> operation, int maxRetries = 3)
@@ -331,402 +304,417 @@ namespace TelegramAutomation
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warn($"操作失败，重试 {i + 1}/{maxRetries}: {ex.Message}");
                     if (i == maxRetries - 1) throw;
-                    await Task.Delay(1000 * (i + 1));
+                    _logger.Warn(ex, $"操作失败，正在重试 ({i + 1}/{maxRetries})");
+                    await Task.Delay(1000 * (i + 1)); // 指数退避
                 }
             }
-            throw new Exception($"操作失败，已重试 {maxRetries} 次");
-        }
-
-        private async Task<IWebElement> WaitForElement(By by, int timeoutSeconds = 30)
-        {
-            if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
-
-            return await Task.Run(() =>
-            {
-                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
-                return wait.Until(d => d.FindElement(by));
-            });
-        }
-
-        private async Task<bool> WaitForElementVisible(By by, int timeoutSeconds = 30)
-        {
-            try
-            {
-                await Task.Yield();
-                var element = await WaitForElement(by, timeoutSeconds);
-                return element.Displayed && element.Enabled;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private async Task SimulateKeyPress(string text)
-        {
-            await Task.Yield();
-            foreach (var c in text)
-            {
-                if (char.IsDigit(c))
-                {
-                    _keyboard.TextEntry(c);
-                }
-                else
-                {
-                    _keyboard.TextEntry(c.ToString());
-                }
-                await Task.Delay(Random.Shared.Next(50, 150));
-            }
-        }
-
-        private async Task<bool> CheckLoginStatus()
-        {
-            try
-            {
-                var chatList = await WaitForElementVisible(By.CssSelector(".chat-list"), 5);
-                if (chatList) return true;
-
-                var messagesContainer = await WaitForElementVisible(By.CssSelector(".messages-container"), 5);
-                return messagesContainer;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        public async Task StartAutomation(string channelUrl, string savePath, 
-            IProgress<string> progress, CancellationToken cancellationToken)
-        {
-            try
-            {
-                if (_driver == null) throw new InvalidOperationException("浏览器未初始化");
-                
-                await Task.Run(() => 
-                {
-                    _driver.Navigate().GoToUrl(channelUrl);
-                    
-                    var messages = _driver.FindElements(By.CssSelector(".message"));
-                    foreach (var message in messages)
-                    {
-                        if (cancellationToken.IsCancellationRequested)
-                        {
-                            progress.Report("操作已取消");
-                            return;
-                        }
-
-                        var messageId = message.GetAttribute("data-message-id");
-                        var messageFolder = Path.Combine(savePath, messageId);
-                        
-                        _messageProcessor.ProcessMessage(message, messageFolder, progress, cancellationToken)
-                            .GetAwaiter().GetResult();
-                    }
-                }, cancellationToken);
-                
-                progress.Report("自动化任务完成");
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "自动化任务失败");
-                throw;
-            }
-        }
-
-        public void Stop()
-        {
-            _cancellationTokenSource?.Cancel();
-            _logger.Info("已停止自动化任务");
+            throw new Exception("重试次数超过上限");
         }
 
         public void Dispose()
         {
-            if (!_disposed)
+            try
             {
                 _driver?.Quit();
                 _driver?.Dispose();
-                _downloadSemaphore.Dispose();
-                _cancellationTokenSource?.Dispose();
-                _disposed = true;
-            }
-        }
-
-        private void LogEnvironmentInfo()
-        {
-            try
-            {
-                _logger.Info("=== 环境信息 ===");
-                _logger.Info($"操作系统: {Environment.OSVersion}");
-                _logger.Info($"64位系统: {Environment.Is64BitOperatingSystem}");
-                _logger.Info($"64位进程: {Environment.Is64BitProcess}");
-                _logger.Info($"当前目录: {Environment.CurrentDirectory}");
-                _logger.Info($"程序目录: {AppDomain.CurrentDomain.BaseDirectory}");
-                _logger.Info($"系统目录: {Environment.SystemDirectory}");
-                _logger.Info($"临时目录: {Path.GetTempPath()}");
-                _logger.Info($"用户配置文件: {Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}");
-                _logger.Info($"程序文件目录: {Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)}");
-                _logger.Info($"程序文件(x86)目录: {Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)}");
-                _logger.Info($"本地应用数据: {Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)}");
-                _logger.Info("=== 环境变量 ===");
-                foreach (var env in Environment.GetEnvironmentVariables().Keys)
-                {
-                    _logger.Info($"{env}: {Environment.GetEnvironmentVariable(env?.ToString() ?? "")}");
-                }
-                _logger.Info("===============");
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "获取环境信息失败");
+                _logger.Error(ex, "关闭浏览器失败");
             }
         }
 
-        private async Task<string> EnsureCorrectChromeDriver(string chromeVersion)
+        private async Task SaveSession()
         {
             try
             {
-                var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                _logger.Info($"当前应用程序目录: {baseDir}");
-                
-                var driverPath = Path.Combine(baseDir, "chromedriver.exe");
-                _logger.Info($"目标 ChromeDriver 路径: {driverPath}");
-
-                // 获取 NuGet 包根目
-                var nugetRoot = Environment.GetEnvironmentVariable("NUGET_PACKAGES") 
-                    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
-                _logger.Info($"NuGet 包根目录: {nugetRoot}");
-
-                // 检查所有可能的路径
-                var possiblePaths = new[]
+                var sessionData = new SessionData
                 {
-                    // 当前目录
-                    driverPath,
-                    
-                    // NuGet 包路径
-                    Path.Combine(
-                        nugetRoot,
-                        "selenium.webdriver.chromedriver",
-                        "132.0.6834.600-beta",
-                        "driver",
-                        "win32",
-                        "chromedriver.exe"
-                    ),
-                    
-                    // 发布目录
-                    Path.Combine(baseDir, "publish", "chromedriver.exe"),
-                    
-                    // 构建输出目录
-                    Path.Combine(baseDir, "bin", "Release", "net6.0-windows", "chromedriver.exe"),
-                    Path.Combine(baseDir, "bin", "Debug", "net6.0-windows", "chromedriver.exe"),
-                    
-                    // 相对路径
-                    "chromedriver.exe",
-                    @".\chromedriver.exe",
-                    @"..\chromedriver.exe"
+                    PhoneNumber = _currentPhoneNumber,
+                    LastLoginTime = DateTime.UtcNow,
+                    SessionValid = _isLoggedIn
                 };
 
-                if (!File.Exists(driverPath))
-                {
-                    _logger.Warn("ChromeDriver 不存在，尝试从可能的位置查找");
-                    
-                    foreach (var path in possiblePaths)
-                    {
-                        _logger.Info($"检查路径: {path}");
-                        try
-                        {
-                            if (File.Exists(path))
-                            {
-                                _logger.Info($"找到 ChromeDriver: {path}");
-                                var fileInfo = new FileInfo(path);
-                                _logger.Info($"文件大小: {fileInfo.Length:N0} 字节");
-                                _logger.Info($"创建时间: {fileInfo.CreationTime}");
-                                _logger.Info($"修改时间: {fileInfo.LastWriteTime}");
-                                
-                                try
-                                {
-                                    await Task.Run(() => File.Copy(path, driverPath, true));
-                                    _logger.Info($"已复制 ChromeDriver 到: {driverPath}");
-                                    break;
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.Error(ex, $"复制 ChromeDriver 失败: {path} -> {driverPath}");
-                                    _logger.Error($"错误详情: {ex.Message}");
-                                    if (ex.InnerException != null)
-                                    {
-                                        _logger.Error($"内部错误: {ex.InnerException.Message}");
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.Error(ex, $"���查路径失败: {path}");
-                        }
-                    }
-                }
+                await File.WriteAllTextAsync(
+                    SESSION_FILE, 
+                    JsonSerializer.Serialize(sessionData)
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "保存会话信息失败");
+            }
+        }
 
-                if (!File.Exists(driverPath))
-                {
-                    var error = "未找到 ChromeDriver，已检查以下路径:";
-                    _logger.Error(error);
-                    foreach (var path in possiblePaths)
-                    {
-                        _logger.Error($"- {path}");
-                    }
-                    throw new FileNotFoundException("未找到 ChromeDriver，请确保程序完整性或重新安装程序");
-                }
+        private async Task<bool> LoadSession()
+        {
+            try
+            {
+                if (!File.Exists(SESSION_FILE))
+                    return false;
 
-                // 验证 ChromeDriver 是否可用
-                try
-                {
-                    var driverInfo = await Task.Run(() => FileVersionInfo.GetVersionInfo(driverPath));
-                    _logger.Info($"ChromeDriver 版本: {driverInfo.FileVersion}");
-                    
-                    // 检查文件权限
-                    var fileInfo = new FileInfo(driverPath);
-                    _logger.Info($"文件属性: {fileInfo.Attributes}");
-                    
-                    if ((fileInfo.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
-                    {
-                        fileInfo.Attributes &= ~FileAttributes.ReadOnly;
-                        _logger.Info("已移除只读属性");
-                    }
+                var sessionData = JsonSerializer.Deserialize<SessionData>(
+                    await File.ReadAllTextAsync(SESSION_FILE)
+                );
 
-                    // 验证文件完整性
-                    await using (var fs = new FileStream(driverPath, FileMode.Open, FileAccess.Read))
-                    {
-                        _logger.Info($"文件可以正常打开，大小: {fs.Length:N0} 字节");
-                    }
-                    
-                    return driverPath;
-                }
-                catch (Exception ex)
+                if (sessionData == null)
+                    return false;
+
+                // 检查会话是否过期（24小时）
+                if (DateTime.UtcNow - sessionData.LastLoginTime > TimeSpan.FromHours(24))
+                    return false;
+
+                _currentPhoneNumber = sessionData.PhoneNumber;
+                _isLoggedIn = sessionData.SessionValid;
+                return _isLoggedIn;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "加载会话信息失败");
+                return false;
+            }
+        }
+
+        public async Task InitializeAsync()
+        {
+            try
+            {
+                // 启动时尝试恢复会话
+                if (await LoadSession())
                 {
-                    _logger.Error(ex, "验证 ChromeDriver 失败");
-                    _logger.Error($"错误详情: {ex.Message}");
-                    if (ex.InnerException != null)
+                    _logger.Info($"成功恢复会话: {_currentPhoneNumber}");
+                    // 验证会话是否真的有效
+                    if (!await VerifyLoginStatus())
                     {
-                        _logger.Error($"内部错误: {ex.InnerException.Message}");
+                        _logger.Warn("话已失效，需要重新登录");
+                        _isLoggedIn = false;
+                        await File.DeleteAsync(SESSION_FILE);
                     }
-                    throw new Exception("ChromeDriver 验证失败，请确保程序完整性", ex);
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "确保 ChromeDriver 版本匹配失败");
-                _logger.Error($"错误详情: {ex.Message}");
-                if (ex.InnerException != null)
-                {
-                    _logger.Error($"内部错误: {ex.InnerException.Message}");
-                }
-                throw;
+                _logger.Error(ex, "初始化会话失败");
+                _isLoggedIn = false;
             }
         }
 
-        private async Task InitializeChromeDriver()
+        private async Task<bool> VerifyLoginStatusComprehensive()
         {
-            try 
+            try
             {
-                var chromeDriverPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "chromedriver.exe");
-                if (!File.Exists(chromeDriverPath))
+                // 1. 检查基本登录状态
+                if (!await VerifyLoginStatus())
+                    return false;
+
+                // 2. 检查会话完整性
+                try
                 {
-                    throw new FileNotFoundException($"ChromeDriver not found at: {chromeDriverPath}");
+                    await _driver.FindElement(By.CssSelector(".user-info"))
+                        .FindElement(By.CssSelector(".phone-number"));
+                    
+                    // 3. 尝试访问基本功能
+                    await _driver.FindElement(By.CssSelector(".chat-list"));
+                    
+                    return true;
+                }
+                catch (NoSuchElementException)
+                {
+                    _logger.Warn("登录状态验证失败：无法访问关键元素");
+                    return false;
+                }
+                catch (StaleElementReferenceException)
+                {
+                    _logger.Warn("登录状态验证失败：页面元素已过期");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "登录状态验证失败");
+                return false;
+            }
+        }
+
+        private async Task WaitForElement(By locator, int timeoutSeconds = 10)
+        {
+            try
+            {
+                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
+                wait.Until(d => d.FindElement(locator).Displayed && d.FindElement(locator).Enabled);
+            }
+            catch (WebDriverTimeoutException)
+            {
+                throw new Exception($"LOGIN_ELEMENT_NOT_FOUND: 未找到元素 {locator}");
+            }
+        }
+
+        private async Task EnsureLoginPageLoaded()
+        {
+            try
+            {
+                // 等待页面完全加载
+                await WaitForPageLoad();
+                
+                // 检查是否在登录页面
+                if (!IsElementPresent(_loginElements["PhoneInput"]))
+                {
+                    // 如果不在登录页面，尝试导航到登录页面
+                    _driver.Navigate().GoToUrl("https://web.telegram.org/");
+                    await WaitForPageLoad();
+                    
+                    // 再次检查
+                    if (!IsElementPresent(_loginElements["PhoneInput"]))
+                    {
+                        throw new Exception("LOGIN_PAGE_ERROR: 无法加载登录页面");
+                    }
                 }
                 
+                // 等待所有必要元素加载完成
+                await WaitForElementInteractive(_loginElements["PhoneInput"]);
+                await WaitForElementInteractive(_loginElements["NextButton"]);
+                
+                _logger.Info("登录页面加载完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "加载登录页面失败");
+                throw new Exception("LOGIN_PAGE_ERROR: 登录页面加载失败或格式异常", ex);
+            }
+        }
+
+        private async Task WaitForPageLoad()
+        {
+            try
+            {
                 await Task.Run(() => {
-                    // 执行同步操作
-                    var chromeOptions = new ChromeOptions();
-                    _driver = new ChromeDriver(chromeOptions);
+                    var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(30));
+                    wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
                 });
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Failed to initialize ChromeDriver");
+                _logger.Error(ex, "等待页面加载超时");
                 throw;
             }
         }
 
-        private async Task HandleMethodAsync()
+        private bool IsElementPresent(By locator, int timeoutSeconds = 5)
         {
             try
             {
-                await Task.Delay(100); // 添加实际的异步操作
-                // ... other async operations ...
+                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
+                wait.Until(d => d.FindElement(locator).Displayed);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public async Task<bool> SubmitVerificationCode(string code)
+        {
+            try
+            {
+                // 等待验证码输入框
+                var codeInput = await WaitForElementInteractive(_loginElements["CodeInput"]);
+                
+                // 清除并输入验证码
+                await ClearAndTypeWithDelay(codeInput, code);
+                
+                // 等待登录按钮并点击
+                var signInButton = await WaitForElementInteractive(_loginElements["SignInButton"]);
+                await ClickWithRetry(signInButton);
+                
+                // 等待登录完成
+                var loginSuccess = await WaitForLoginComplete();
+                if (loginSuccess)
+                {
+                    _isLoggedIn = true;
+                    await SaveSession();
+                }
+                
+                return loginSuccess;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error in HandleMethodAsync");
+                _logger.Error(ex, "提交验证码失败");
+                return false;
+            }
+        }
+
+        // 添加通用的重试方法
+        private async Task<T> RetryWithTimeout<T>(Func<Task<T>> operation, string operationName, int timeoutSeconds = DEFAULT_TIMEOUT)
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            for (int attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++)
+            {
+                try
+                {
+                    return await operation().WaitAsync(cts.Token);
+                }
+                catch (TimeoutException)
+                {
+                    _logger.Warn($"{operationName} 操作超时 (尝试 {attempt + 1}/{MAX_RETRY_ATTEMPTS})");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, $"{operationName} 操作失败 (尝试 {attempt + 1}/{MAX_RETRY_ATTEMPTS})");
+                }
+
+                if (attempt < MAX_RETRY_ATTEMPTS - 1)
+                {
+                    await Task.Delay(RETRY_DELAYS[attempt], cts.Token);
+                }
+            }
+            throw new Exception($"{operationName} 操作失败，已重试 {MAX_RETRY_ATTEMPTS} 次");
+        }
+
+        // 添加元素等待方法
+        private async Task<IWebElement> WaitForElementWithRetry(By locator, string elementName, int timeoutSeconds = ELEMENT_TIMEOUT)
+        {
+            return await RetryWithTimeout(async () =>
+            {
+                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
+                return await Task.Run(() => wait.Until(d =>
+                {
+                    try
+                    {
+                        var element = d.FindElement(locator);
+                        if (!element.Displayed || !element.Enabled)
+                            return null;
+
+                        // 检查元素是否被遮挡
+                        var clickable = (bool)((IJavaScriptExecutor)d).ExecuteScript(@"
+                            var elem = arguments[0];
+                            var rect = elem.getBoundingClientRect();
+                            var cx = rect.left + rect.width/2;
+                            var cy = rect.top + rect.height/2;
+                            var elemAtPoint = document.elementFromPoint(cx, cy);
+                            return elemAtPoint === elem || elem.contains(elemAtPoint);
+                        ", element);
+
+                        return clickable ? element : null;
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                }));
+            }, $"等待元素 {elementName}");
+        }
+
+        // 修改登录方法，添加更多等待和重试
+        public async Task<bool> Login(string phoneNumber, string verificationCode)
+        {
+            try
+            {
+                _logger.Info($"开始登录: {phoneNumber}");
+
+                // 等待验证码输入框
+                var codeInput = await WaitForElementWithRetry(
+                    _loginElements["CodeInput"], 
+                    "验证码输入框"
+                );
+
+                // 清除并输入验证码
+                await RetryWithTimeout(async () =>
+                {
+                    await ClearAndTypeWithDelay(codeInput, verificationCode);
+                    return true;
+                }, "输入验证码");
+
+                // 等待并点击登录按钮
+                var signInButton = await WaitForElementWithRetry(
+                    _loginElements["SignInButton"], 
+                    "登录按钮"
+                );
+
+                await RetryWithTimeout(async () =>
+                {
+                    await ClickWithRetry(signInButton);
+                    return true;
+                }, "点击登录按钮");
+
+                // 等待登录完成
+                var loginSuccess = await RetryWithTimeout(
+                    async () => await VerifyLoginStatusComprehensive(),
+                    "验证登录状态"
+                );
+
+                if (loginSuccess)
+                {
+                    _isLoggedIn = true;
+                    _currentPhoneNumber = phoneNumber;
+                    await SaveSession();
+                    _logger.Info("登录成功");
+                }
+
+                return loginSuccess;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "登录失败");
                 throw;
             }
         }
 
-        public void PauseDownload(string fileName)
+        // 修改点击方法，添加更多重试机制
+        private async Task ClickWithRetry(IWebElement element, int maxRetries = 3)
         {
-            _pausedDownloads.AddOrUpdate(fileName, true, (key, oldValue) => true);
-        }
-
-        public void ResumeDownload(string fileName)
-        {
-            _pausedDownloads.AddOrUpdate(fileName, false, (key, oldValue) => false);
-        }
-
-        public void CancelDownload(string fileName)
-        {
-            if (_downloadTokens.TryRemove(fileName, out var cts))
+            for (int i = 0; i < maxRetries; i++)
             {
-                cts.Cancel();
-                cts.Dispose();
-            }
-        }
-
-        public async Task StartDownload(DownloadItem item, IProgress<int> progress, CancellationToken cancellationToken)
-        {
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _downloadTokens.TryAdd(item.FileName, cts);
-
-            try
-            {
-                item.Status = "下载中";
-                while (item.Progress < 100)
+                try
                 {
-                    if (cts.Token.IsCancellationRequested)
-                    {
-                        item.Status = "已取消";
-                        break;
-                    }
+                    // 确保元素在视图中
+                    ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].scrollIntoView(true);", element);
+                    await Task.Delay(500); // 等待滚动完成
 
-                    if (_pausedDownloads.TryGetValue(item.FileName, out bool isPaused) && isPaused)
-                    {
-                        item.Status = "已暂停";
-                        await Task.Delay(1000, cts.Token);
-                        continue;
-                    }
-
-                    // 模拟下载进度
-                    await Task.Delay(100, cts.Token);
-                    item.Progress = Math.Min(item.Progress + 1, 100);
-                    progress.Report(item.Progress);
+                    // 尝试常规点击
+                    element.Click();
+                    return;
                 }
-
-                if (item.Progress >= 100)
+                catch (ElementClickInterceptedException)
                 {
-                    item.Status = "已完成";
+                    if (i == maxRetries - 1) throw;
+                    
+                    // 尝试使用 JavaScript 点击
+                    try
+                    {
+                        ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].click();", element);
+                        return;
+                    }
+                    catch
+                    {
+                        await Task.Delay(RETRY_DELAYS[i]);
+                    }
                 }
             }
-            catch (OperationCanceledException)
+        }
+
+        // 添加页面加载等待方法
+        private async Task WaitForPageLoadComplete(int timeoutSeconds = DEFAULT_TIMEOUT)
+        {
+            var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
+            await Task.Run(() => wait.Until(d =>
+                ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete") &&
+                ((IJavaScriptExecutor)d).ExecuteScript("return jQuery.active").Equals(0)
+            ));
+        }
+
+        // 添加网络空闲等待方法
+        private async Task WaitForNetworkIdle(int timeoutSeconds = DEFAULT_TIMEOUT)
+        {
+            await Task.Run(() =>
             {
-                item.Status = "已取消";
-            }
-            catch (Exception ex)
-            {
-                item.Status = "下载失败";
-                _logger.Error(ex, $"下载失败: {item.FileName}");
-            }
-            finally
-            {
-                _downloadTokens.TryRemove(item.FileName, out _);
-            }
+                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
+                wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript(@"
+                    return window.performance.getEntriesByType('resource')
+                        .filter(r => !r.responseEnd).length === 0;
+                "));
+            });
         }
     }
 }

@@ -12,6 +12,10 @@ using TelegramAutomation.Models;
 using TelegramAutomation.Services;
 using System.Diagnostics;
 using Microsoft.Win32;
+using System.Text.RegularExpressions;
+using System.Collections.Generic;
+using System.Windows.Media;
+using System.Net.Http;
 
 namespace TelegramAutomation.ViewModels
 {
@@ -33,6 +37,34 @@ namespace TelegramAutomation.ViewModels
         private bool _isLoggedIn;
         private bool _isRequestingCode;
         private bool _isLoggingIn;
+        private string _statusMessage = "请登录";
+        private string _loginStatus = string.Empty;
+        private string _loginStatusMessage = string.Empty;
+        private bool _isInitializing;
+
+        private readonly Dictionary<string, string> _errorMessages = new()
+        {
+            { "PHONE_NUMBER_INVALID", "无效的手机号码格式" },
+            { "PHONE_NUMBER_BANNED", "该手机号码已被封禁" },
+            { "PHONE_CODE_INVALID", "验证码错误" },
+            { "PHONE_CODE_EXPIRED", "验证码已过期" },
+            { "FLOOD_WAIT", "请求过于频繁，请稍后再试" },
+            { "NETWORK_ERROR", "网络连接错误，请检查网络" },
+            { "SESSION_EXPIRED", "登录会话已过期，请重新登录" },
+            { "CHROME_NOT_FOUND", "未找到Chrome浏览器，请先安装" },
+            { "CHROME_VERSION_MISMATCH", "Chrome版本不兼容，请更新" }
+        };
+
+        private Brush _loginStatusColor = Brushes.Black;
+        private int _reconnectAttempts = 0;
+        private readonly int MAX_RECONNECT_ATTEMPTS = 3;
+        private readonly int[] RECONNECT_DELAYS = { 2000, 5000, 10000 };
+
+        public Brush LoginStatusColor
+        {
+            get => _loginStatusColor;
+            set => SetProperty(ref _loginStatusColor, value);
+        }
 
         public MainViewModel()
         {
@@ -50,6 +82,12 @@ namespace TelegramAutomation.ViewModels
             // 设置默认保存路径
             SavePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "TelegramDownloads");
             _lastLogUpdate = DateTime.Now;
+
+            // 添加初始化任务
+            _ = InitializeAsync();
+
+            // 启动网络监控
+            _ = CheckNetworkStatus();
         }
 
         public string ChannelUrl
@@ -103,14 +141,22 @@ namespace TelegramAutomation.ViewModels
             set
             {
                 if (SetProperty(ref _phoneNumber, value))
-                    (RequestCodeCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                {
+                    RequestCodeCommand.RaiseCanExecuteChanged();
+                }
             }
         }
 
         public string VerificationCode
         {
             get => _verificationCode;
-            set => SetProperty(ref _verificationCode, value);
+            set
+            {
+                if (SetProperty(ref _verificationCode, value))
+                {
+                    LoginCommand.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public bool IsLoggedIn
@@ -126,13 +172,55 @@ namespace TelegramAutomation.ViewModels
         public bool IsRequestingCode
         {
             get => _isRequestingCode;
-            private set => SetProperty(ref _isRequestingCode, value);
+            set
+            {
+                if (SetProperty(ref _isRequestingCode, value))
+                {
+                    RequestCodeCommand.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public bool IsLoggingIn
         {
             get => _isLoggingIn;
-            private set => SetProperty(ref _isLoggingIn, value);
+            set
+            {
+                if (SetProperty(ref _isLoggingIn, value))
+                {
+                    LoginCommand.RaiseCanExecuteChanged();
+                }
+            }
+        }
+
+        public string StatusMessage
+        {
+            get => _statusMessage;
+            set => SetProperty(ref _statusMessage, value);
+        }
+
+        public string LoginStatus
+        {
+            get => _loginStatus;
+            set => SetProperty(ref _loginStatus, value);
+        }
+
+        public string LoginStatusMessage
+        {
+            get => _loginStatusMessage;
+            set => SetProperty(ref _loginStatusMessage, value);
+        }
+
+        public bool IsInitializing
+        {
+            get => _isInitializing;
+            set
+            {
+                if (SetProperty(ref _isInitializing, value))
+                {
+                    UpdateCommandStates();
+                }
+            }
         }
 
         public ICommand StartCommand { get; }
@@ -278,141 +366,40 @@ namespace TelegramAutomation.ViewModels
             LogContent = _logBuilder.ToString();
         }
 
+        private bool ValidatePhoneNumber(string phoneNumber)
+        {
+            if (string.IsNullOrWhiteSpace(phoneNumber))
+                return false;
+
+            // 添加国际手机号格式验证
+            var phoneRegex = new Regex(@"^\+[1-9]\d{1,14}$");
+            return phoneRegex.IsMatch(phoneNumber);
+        }
+
         private async Task RequestVerificationCode()
         {
+            if (!ValidatePhoneNumber(PhoneNumber))
+            {
+                LoginStatusMessage = "请输入正确的手机号码格式（如：+8613800138000）";
+                return;
+            }
+
             try
             {
                 IsRequestingCode = true;
-                Status = "正在发送验证码...";
-                AddLog($"正在发送验证码到 {PhoneNumber}...");
-                
-                // 检查 Chrome 是否安装
-                _logger.Info("开始检查 Chrome 安装状态...");
-                var chromeInstalled = IsChromeInstalled();
-                _logger.Info($"Chrome 安装检查结果: {chromeInstalled}");
-                
-                if (!chromeInstalled)
-                {
-                    AddLog("错误: 未检测到 Chrome 浏览器，请先安装 Chrome");
-                    Status = "请安装 Chrome";
-                    return;
-                }
-                
-                _logger.Info("开始初始化浏览器...");
-                try
-                {
-                    await _controller.InitializeBrowser();
-                    _logger.Info("浏览器初始化成功");
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "浏览器初始化失败");
-                    AddLog($"浏览器初始化失败: {ex.Message}");
-                    if (ex.InnerException != null)
-                    {
-                        AddLog($"内部错误: {ex.InnerException.Message}");
-                    }
-                    throw;
-                }
-                
-                _logger.Info("开始导航到 Telegram...");
-                await _controller.NavigateToTelegram();
-                
-                _logger.Info("开始发送验证码...");
+                LoginStatusMessage = "正在发送验证码...";
+
                 await _controller.RequestVerificationCode(PhoneNumber);
-                
-                AddLog("验证码已发送，请查收");
-                Status = "等待验证码";
-            }
-            catch (FileNotFoundException ex)
-            {
-                _logger.Error(ex, "组件缺失");
-                AddLog(ex.Message);
-                AddLog("请确保程序完整性或重新安装程序");
-                Status = "组件缺失";
-                
-                // 添加详细的错误信息
-                _logger.Error("缺失文件的完整路径信息:");
-                _logger.Error($"当前目录: {Environment.CurrentDirectory}");
-                _logger.Error($"基础目录: {AppDomain.CurrentDomain.BaseDirectory}");
-                _logger.Error($"程序目录: {Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName)}");
+                LoginStatusMessage = "验证码已发送，请查收";
+                _logger.Info($"验证码已发送到 {PhoneNumber}");
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "发送验证码失败");
-                AddLog($"发送验证码失败: {ex.Message}");
-                if (ex.InnerException != null)
-                {
-                    AddLog($"内部错误: {ex.InnerException.Message}");
-                }
-                Status = "发送失败";
-                
-                // 添加更多诊断信息
-                _logger.Error("异常详细信息:");
-                _logger.Error($"异常类型: {ex.GetType().FullName}");
-                _logger.Error($"堆栈跟踪: {ex.StackTrace}");
+                HandleError(ex, "发送验证码失败");
             }
             finally
             {
                 IsRequestingCode = false;
-                _logger.Info($"验证码请求处理完成，状态: {Status}");
-            }
-        }
-
-        private bool IsChromeInstalled()
-        {
-            try
-            {
-                // 检查所有可能的 Chrome 安装路径
-                var possiblePaths = new[]
-                {
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe"),
-                    @"C:\Program Files\Google\Chrome\Application\chrome.exe",
-                    @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
-                };
-
-                foreach (var path in possiblePaths)
-                {
-                    if (File.Exists(path))
-                    {
-                        _logger.Info($"找到 Chrome 浏览器: {path}");
-                        var versionInfo = FileVersionInfo.GetVersionInfo(path);
-                        if (!string.IsNullOrEmpty(versionInfo.FileVersion))
-                        {
-                            _logger.Info($"Chrome 版本: {versionInfo.FileVersion}");
-                            return true;
-                        }
-                    }
-                }
-
-                // 如果上面的路径都没找到，尝试通过注册表查找
-                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe"))
-                {
-                    if (key != null)
-                    {
-                        var chromePath = key.GetValue(null) as string;
-                        if (!string.IsNullOrEmpty(chromePath) && File.Exists(chromePath))
-                        {
-                            _logger.Info($"通过注册表找到 Chrome: {chromePath}");
-                            var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
-                            if (!string.IsNullOrEmpty(versionInfo.FileVersion))
-                            {
-                                _logger.Info($"Chrome 版本: {versionInfo.FileVersion}");
-                                return true;
-                            }
-                        }
-                    }
-                }
-
-                _logger.Error("未找到 Chrome 浏览器");
-                return false;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "检查 Chrome 安装失败");
-                return false;
             }
         }
 
@@ -420,52 +407,209 @@ namespace TelegramAutomation.ViewModels
         {
             if (string.IsNullOrWhiteSpace(VerificationCode))
             {
-                AddLog("错误: 请输入验证码");
+                LoginStatusMessage = "请输入验证码";
+                LoginStatusColor = Brushes.Red;
                 return;
             }
 
             try
             {
                 IsLoggingIn = true;
-                Status = "正在登录...";
-                AddLog("正在登录...");
+                LoginStatusMessage = "正在登录...";
+                LoginStatusColor = Brushes.Black;
+
+                await _controller.LoginWithRetry(PhoneNumber, VerificationCode);
                 
-                await _controller.Login(PhoneNumber, VerificationCode);
                 IsLoggedIn = true;
-                
-                AddLog("登录成功");
-                Status = "已登录";
-            }
-            catch (WebDriverException ex)
-            {
-                AddLog($"浏览器操作失败: {ex.Message}");
-                Status = "登录失败";
-                _logger.Error(ex, "浏览器操作失败");
+                LoginStatusMessage = "登录成功";
+                LoginStatusColor = Brushes.Green;
+                _logger.Info("登录成功");
+
+                // 清空验证码
+                VerificationCode = string.Empty;
             }
             catch (Exception ex)
             {
-                AddLog($"登录失败: {ex.Message}");
-                Status = "登录失败";
-                _logger.Error(ex, "登录失败");
+                HandleError(ex, "登录失败");
+                IsLoggedIn = false;
+                
+                // 尝试自动重连
+                if (ex.Message.Contains("SESSION_EXPIRED") || 
+                    ex.Message.Contains("NETWORK_ERROR"))
+                {
+                    await AutoReconnect();
+                }
             }
             finally
             {
                 IsLoggingIn = false;
-                VerificationCode = string.Empty; // 清空验证码
             }
         }
 
-        public void Dispose()
+        private async Task InitializeAsync()
+        {
+            try
+            {
+                IsInitializing = true;
+                LoginStatusMessage = "正在初始化...";
+
+                // 尝试恢复会话
+                var sessionRestored = await _controller.InitializeAsync();
+                if (sessionRestored)
+                {
+                    IsLoggedIn = true;
+                    LoginStatusMessage = "已恢复登录状态";
+                    _logger.Info("成功恢复登录会话");
+                }
+                else
+                {
+                    LoginStatusMessage = "请登录";
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleError(ex, "初始化失败");
+            }
+            finally
+            {
+                IsInitializing = false;
+            }
+        }
+
+        private void HandleError(Exception ex, string defaultMessage)
+        {
+            string errorMessage = defaultMessage;
+            LoginStatusColor = Brushes.Red;
+
+            // 检查是否是已知错误
+            foreach (var pair in _errorMessages)
+            {
+                if (ex.Message.Contains(pair.Key, StringComparison.OrdinalIgnoreCase))
+                {
+                    errorMessage = pair.Value;
+                    break;
+                }
+            }
+
+            // 记录错误
+            _logger.Error(ex, errorMessage);
+            LoginStatusMessage = $"{errorMessage}: {ex.Message}";
+
+            // 特殊错误处理
+            if (ex.Message.Contains("SESSION_EXPIRED"))
+            {
+                IsLoggedIn = false;
+                // 清理会话数据
+                _ = _controller.ClearSession();
+            }
+            else if (ex.Message.Contains("NETWORK_ERROR"))
+            {
+                // 网络错误时尝试自动重连
+                _ = AutoReconnect();
+            }
+        }
+
+        private void UpdateCommandStates()
+        {
+            (RequestCodeCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (LoginCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (StartCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (StopCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+
+        public override void Dispose()
         {
             try
             {
                 _cancellationTokenSource?.Cancel();
                 _cancellationTokenSource?.Dispose();
                 _controller?.Dispose();
+                
+                // 保存状态
+                if (IsLoggedIn)
+                {
+                    _ = _controller.SaveSession();
+                }
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "资源释放失败");
+            }
+        }
+
+        private async Task AutoReconnect()
+        {
+            while (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS)
+            {
+                try
+                {
+                    LoginStatusMessage = $"正在尝试重新连接... ({_reconnectAttempts + 1}/{MAX_RECONNECT_ATTEMPTS})";
+                    LoginStatusColor = Brushes.Orange;
+
+                    await Task.Delay(RECONNECT_DELAYS[_reconnectAttempts]);
+                    await _controller.InitializeAsync();
+
+                    if (await _controller.VerifyLoginStatusComprehensive())
+                    {
+                        IsLoggedIn = true;
+                        LoginStatusMessage = "重新连接成功";
+                        LoginStatusColor = Brushes.Green;
+                        _reconnectAttempts = 0;
+                        return;
+                    }
+
+                    _reconnectAttempts++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, $"重新连接失败 (尝试 {_reconnectAttempts + 1}/{MAX_RECONNECT_ATTEMPTS})");
+                    _reconnectAttempts++;
+                }
+            }
+
+            LoginStatusMessage = "重新连接失败，请手动重新登录";
+            LoginStatusColor = Brushes.Red;
+            IsLoggedIn = false;
+            _reconnectAttempts = 0;
+        }
+
+        // 添加网络状态监控
+        private bool _isNetworkAvailable = true;
+        public bool IsNetworkAvailable
+        {
+            get => _isNetworkAvailable;
+            private set
+            {
+                if (SetProperty(ref _isNetworkAvailable, value))
+                {
+                    if (!value && IsLoggedIn)
+                    {
+                        LoginStatusMessage = "网络连接已断开，等待重连...";
+                        LoginStatusColor = Brushes.Orange;
+                        _ = AutoReconnect();
+                    }
+                }
+            }
+        }
+
+        // 添加网络状态检查
+        private async Task CheckNetworkStatus()
+        {
+            while (!_disposed)
+            {
+                try
+                {
+                    using var client = new HttpClient();
+                    client.Timeout = TimeSpan.FromSeconds(5);
+                    await client.GetAsync("https://www.google.com");
+                    IsNetworkAvailable = true;
+                }
+                catch
+                {
+                    IsNetworkAvailable = false;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(30));
             }
         }
     }

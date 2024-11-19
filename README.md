@@ -1,104 +1,103 @@
 # Telegram 自动化下载工具
 
-## 最新更新 (v1.8.21)
+## 最新更新 (v1.8.22)
+- 🔧 优化登录流程
+  - 改进错误处理机制
+  - 完善日志记录系统
+  - 优化会话管理
+- ⚡️ 提升稳定性
+  - 移除代理配置需求
+  - 优化网络连接处理
+  - 改进重试机制
+- 🛠️ 代码重构
+  - 规范化异常处理
+  - 完善日志输出
+  - 优化资源管理
+
+## 上一版本 (v1.8.21)
 - 🔧 修复输入框无法输入问题
 - ⚡️ 优化 MVVM 数据绑定
 - 🛠️ 改进用户界面交互
 - 📝 完善输入验证机制
 
-## 上一版本 (v1.8.20)
-- 🎨 完善用户界面功能
-- ⚡️ 优化按钮事件处理
-- 🛠️ 改进输入验证机制
-- 📝 完善状态反馈
-
 ## 程序目录结构
 
-### 目录说明
+### 源代码目录
 
 1. **.github/**
-   - `workflows/build.yml`: CI/CD自动构建配置，包含测试和发布流程
-   - 自动化测试和部署配置
-   - GitHub Actions 工作流定义
+   - `workflows/`
+     - `build.yml`: CI/CD自动构建配置
 
 2. **Commands/**
    - `RelayCommand.cs`: MVVM命令实现
-   - 包含所有命令处理相关的类
-   - 实现命令模式的具体命令
 
-3. **docs/**
-   - `CONTRIBUTING.md`: 项目贡献指南
-   - `FAQ.md`: 常见问题解答
-   - 技术文档和使用说明
+3. **Constants/**
+   - `ErrorCodes.cs`: 错误代码常量定义
 
-4. **Models/**
-   - `AppSettings.cs`: 应用程序配置模型
-   - `DownloadConfiguration.cs`: 下载配置模型
-   - 其他数据模型类定义
+4. **Exceptions/**
+   - `TelegramAutomationException.cs`: 基础异常类
+   - `ChromeException.cs`: Chrome相关异常
+   - `LoginException.cs`: 登录相关异常
 
-5. **Services/**
-   - `ChromeService.cs`: Chrome浏览器检测和管理
-   - `DownloadManager.cs`: 文件下载管理和并发控制
-   - `MessageProcessor.cs`: Telegram消息解析和处理
-   - 核心业务逻辑服务实现
+5. **Helpers/**
+   - `LogHelper.cs`: 日志辅助工具
 
-6. **Themes/**
-   - `Default.xaml`: 默认主题样式定义
-   - 自定义控件样式
-   - 全局资源字典
+6. **Models/**
+   - `AppSettings.cs`: 应用配置模型
+   - `DownloadConfiguration.cs`: 下载配置
+   - `DownloadItem.cs`: 下载项模型
+   - `SessionData.cs`: 会话数据模型
 
-7. **ViewModels/**
-   - `ViewModelBase.cs`: MVVM基类实现
-   - `MainViewModel.cs`: 主窗口的视图模型
-   - 其他视图模型类
+7. **Services/**
+   - `ChromeService.cs`: Chrome浏览器服务
+   - `DownloadManager.cs`: 下载管理服务
+   - `MessageProcessor.cs`: 消息处理服务
 
-8. **Views/**
-   - `MainWindow.xaml`: 主窗口的XAML界面定义
-   - `MainWindow.xaml.cs`: 主窗口的代码后置
-   - 用户界面实现
+8. **ViewModels/**
+   - `ViewModelBase.cs`: MVVM基类
+   - `MainViewModel.cs`: 主窗口视图模型
 
-9. **根目录文件**
-   - `App.xaml/cs`: 应用程入口和全局配置
-   - `appsettings.json`: 应用序配置文件
-   - `AutomationController.cs`: 自动化控制核心类
-   - `nlog.config`: NLog日志框架配置
-   - `Program.cs`: 程序入口点
-   - `CHANGELOG.md`: 版本更新记录
-   - `README.md`: 项目说明文档
-   - `TelegramAutomation.csproj`: 项目定义文件
+9. **Views/**
+   - `MainWindow.xaml`: 主窗口界面
+   - `MainWindow.xaml.cs`: 主窗口代码
 
-### 文件说明
+10. **docs/**
+    - `CONTRIBUTING.md`: 贡献指南
+    - `FAQ.md`: 常见问题
 
-1. **配置文件**
-   - `appsettings.json`: 应用程序主配置
-   - `nlog.config`: 日志配置
-   - `.gitignore`: Git忽略规则
-
-2. **核心文件**
-   - `AutomationController.cs`: 自动化控制器
-   - `Program.cs`: 应用程序入口
-   - `App.xaml`: WPF应用程序定义
-
-3. **项目文件**
-   - `TelegramAutomation.csproj`: 项目配置
-   - `packages.config`: NuGet包配置
-   - `*.sln`: 解决方案文件
-
-### 资源文件
-- `Assets/`: 图片和图标资源
-- `Themes/`: 主题和样式文件
-- `Resources/`: 其他资源文件
+### 配置文件
+- `App.xaml`: WPF应用程序定义
+- `App.xaml.cs`: 应用程序代码
+- `Program.cs`: 程序入口
+- `AutomationController.cs`: 自动化控制器
+- `appsettings.json`: 应用配置文件
+- `nlog.config`: 日志配置文件
+- `CHANGELOG.md`: 更新日志
+- `README.md`: 项目说明
+- `LICENSE`: 开源许可证
+- `TelegramAutomation.csproj`: 项目文件
+- `.gitignore`: Git忽略规则
 
 ### 输出目录
-- `bin/`: 编译输出目录
-- `obj/`: 中间文件目录
-- `publish/`: 发布输出目录
+- `bin/`
+  - `Debug/`: 调试版本输出
+  - `Release/`: 发布版本输出
+    - `net6.0-windows/`: .NET运行时
+      - `win-x64/`: Windows平台
+        - `publish/`: 发布文件
 
-### 日志目录
-- `logs/`: 应用程序日志
+### 临时文件
+- `obj/`: 编译中间文件
+- `logs/`: 日志文件目录
   - `errors/`: 错误日志
   - `debug/`: 调试日志
   - `info/`: 信息日志
+- `session.json`: 会话数据
+- `chromedriver.exe`: Chrome驱动
+
+### 资源文件
+- `Assets/`: 图片和图标
+- `Resources/`: 其他资源
 
 ## 技术栈
 - **框架**: 
@@ -193,7 +192,7 @@
 - 操作系统: Windows 7/10/11
 - .NET 运行时: .NET 6.0 或更高版本
 - 浏览器: Chrome v131.0.6778.86 或更高版本
-- 科学上网环境（首次运行需要）
+- 本地网络需要能访问 Telegram Web
 
 ## 详细安装步骤
 
@@ -318,7 +317,7 @@ A: 可能原因：
 3. 服务器限制
 
 ## 技术支持
-- 提交 Issue: [Issues](https://github.com/liangjie559567/TelegramAutomation/issues)
+- 交 Issue: [Issues](https://github.com/liangjie559567/TelegramAutomation/issues)
 - 技术讨论: [Discussions](https://github.com/liangjie559567/TelegramAutomation/discussions)
 - 文档中心: [Wiki](https://github.com/liangjie559567/TelegramAutomation/wiki)
 
@@ -342,3 +341,85 @@ A: 可能原因：
 ## 联系方式
 - GitHub: [@liangjie559567](https://github.com/liangjie559567)
 - 邮箱: [your-email@example.com]
+
+## 功能目录
+
+### 1. 登录功能
+- 支持手机号验证码登录
+- 智能检测Chrome浏览器
+- 自动匹配ChromeDriver版本
+- 模拟人工输入行为
+- 会话状态持久化
+- 自动重连机制
+- 登录状态验证
+- 错误重试机制
+
+### 2. 用户界面
+- 实时登录状态显示
+- 进度条反馈
+- 状态颜色指示
+- 输入验证提示
+- 错误信息展示
+- 网络状态监控
+- 操作按钮状态管理
+- 友好的用户提示
+
+### 3. 错误处理
+- 统一的异常处理机制
+- 详细的错误代码系统
+- 多级日志记录
+- 自动错误恢复
+- 网络异常重试
+- 会话过期处理
+- 资源释放保护
+- 错误诊断信息
+
+### 4. 日志系统
+- 分级日志记录
+- 错误追踪
+- 调试信息
+- 性能监控
+- 操作审计
+- 日志文件轮转
+- 控制台输出
+- 诊断信息收集
+
+### 5. 网络管理
+- 网络状态监控
+- 自动重连机制
+- 连接超时处理
+- 网络错误恢复
+- 会话状态检查
+- 网络诊断
+- 连接重试策略
+- 网络性能优化
+
+### 6. 消息处理
+- 自动提取消息文本
+- 支持多媒体内容下载
+- 智能链接提取
+- 文件分类存储
+- 内容过滤
+- 批量处理
+- 进度跟踪
+- 状态报告
+
+### 7. 下载管理
+- 多线程并发下载
+- 断点续传支持
+- 自动重试机制
+- 进度实时显示
+- 下载队列管理
+- 文件完整性校验
+- 重复文件处理
+- 下载速度控制
+
+### 8. 安全特性
+- 会话加密存储
+- 安全的登录机制
+- 资源访问控制
+- 错误信息保护
+- 日志安全存储
+- 配置文件加密
+- 敏感信息处理
+- 异常安全处理
