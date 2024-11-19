@@ -15,6 +15,7 @@ using System.Reflection;
 using TelegramAutomation.Models;
 using TelegramAutomation.Services;
 using WindowsInput.Native;
+using System.Diagnostics;
 
 namespace TelegramAutomation
 {
@@ -306,8 +307,9 @@ namespace TelegramAutomation
         {
             try
             {
+                await Task.Yield();
                 var element = await WaitForElement(by, timeoutSeconds);
-                return await Task.Run(() => element.Displayed && element.Enabled);
+                return element.Displayed && element.Enabled;
             }
             catch
             {
@@ -317,19 +319,17 @@ namespace TelegramAutomation
 
         private async Task SimulateKeyPress(string text)
         {
+            await Task.Yield();
             foreach (var c in text)
             {
-                await Task.Run(() =>
+                if (char.IsDigit(c))
                 {
-                    if (char.IsDigit(c))
-                    {
-                        _keyboard.TextEntry(c);
-                    }
-                    else
-                    {
-                        _keyboard.TextEntry(c.ToString());
-                    }
-                });
+                    _keyboard.TextEntry(c);
+                }
+                else
+                {
+                    _keyboard.TextEntry(c.ToString());
+                }
                 await Task.Delay(Random.Shared.Next(50, 150));
             }
         }
@@ -402,6 +402,47 @@ namespace TelegramAutomation
                 _downloadSemaphore.Dispose();
                 _cancellationTokenSource?.Dispose();
                 _disposed = true;
+            }
+        }
+
+        private async Task<string> EnsureCorrectChromeDriver(string chromeVersion)
+        {
+            try
+            {
+                var driverPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    "chromedriver.exe"
+                );
+
+                if (!File.Exists(driverPath))
+                {
+                    _logger.Warn("ChromeDriver 不存在，尝试从 NuGet 包复制");
+                    var nugetPath = Path.Combine(
+                        AppDomain.CurrentDomain.BaseDirectory,
+                        "selenium.webdriver.chromedriver",
+                        "132.0.6834.600-beta",
+                        "driver",
+                        "win32",
+                        "chromedriver.exe"
+                    );
+
+                    if (File.Exists(nugetPath))
+                    {
+                        File.Copy(nugetPath, driverPath, true);
+                        _logger.Info("已从 NuGet 包复制 ChromeDriver");
+                    }
+                    else
+                    {
+                        throw new FileNotFoundException("未找到 ChromeDriver");
+                    }
+                }
+
+                return driverPath;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "确保 ChromeDriver 版本匹配失败");
+                throw;
             }
         }
     }
