@@ -1,5 +1,4 @@
 using System.Windows;
-using TelegramAutomation.ViewModels;
 
 namespace TelegramAutomation.Views
 {
@@ -8,7 +7,6 @@ namespace TelegramAutomation.Views
         public MainWindow()
         {
             InitializeComponent();
-            DataContext = new MainViewModel();
         }
     }
 } 
