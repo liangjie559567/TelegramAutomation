@@ -74,26 +74,65 @@ namespace TelegramAutomation
 
         private string GetChromeVersion()
         {
-            var chromePath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-                @"Google\Chrome\Application\chrome.exe"
-            );
-            
-            if (!File.Exists(chromePath))
+            try
             {
-                chromePath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-                    @"Google\Chrome\Application\chrome.exe"
-                );
+                // 检查所有可能的 Chrome 安装路径
+                var possiblePaths = new[]
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe"),
+                    @"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                    @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+                };
+
+                foreach (var path in possiblePaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        _logger.Info($"找到 Chrome 浏览器: {path}");
+                        var versionInfo = FileVersionInfo.GetVersionInfo(path);
+                        var version = versionInfo.FileVersion;
+                        if (!string.IsNullOrEmpty(version))
+                        {
+                            _logger.Info($"Chrome 版本: {version}");
+                            return version;
+                        }
+                    }
+                }
+
+                // 如果上面的路径都没找到，尝试通过注册表查找
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe"))
+                {
+                    if (key != null)
+                    {
+                        var chromePath = key.GetValue(null) as string;
+                        if (!string.IsNullOrEmpty(chromePath) && File.Exists(chromePath))
+                        {
+                            _logger.Info($"通过注册表找到 Chrome: {chromePath}");
+                            var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
+                            var version = versionInfo.FileVersion;
+                            if (!string.IsNullOrEmpty(version))
+                            {
+                                _logger.Info($"Chrome 版本: {version}");
+                                return version;
+                            }
+                        }
+                    }
+                }
+
+                _logger.Error("未找到 Chrome 浏览器，已检查以下路径:");
+                foreach (var path in possiblePaths)
+                {
+                    _logger.Error($"- {path}");
+                }
+                throw new FileNotFoundException("未找到 Chrome 浏览器，请确保已正确安装 Chrome");
             }
-            
-            if (File.Exists(chromePath))
+            catch (Exception ex)
             {
-                var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
-                return versionInfo.FileVersion ?? "unknown";
+                _logger.Error(ex, "获取 Chrome 版本失败");
+                throw new Exception("获取 Chrome 版本失败，请确保已正确安装 Chrome", ex);
             }
-            
-            throw new FileNotFoundException("未找到 Chrome 浏览器");
         }
 
         public async Task NavigateToTelegram()
