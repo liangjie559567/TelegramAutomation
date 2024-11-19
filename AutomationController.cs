@@ -26,7 +26,7 @@ namespace TelegramAutomation
         private IWebDriver? _driver;
         private bool _disposed;
         private readonly SemaphoreSlim _downloadSemaphore;
-        private readonly InputSimulator _inputSimulator;
+        private readonly IInputSimulator _inputSimulator;
         private readonly IKeyboardSimulator _keyboard;
         private CancellationTokenSource? _cancellationTokenSource;
         private readonly MessageProcessor _messageProcessor;
