@@ -1,9 +1,59 @@
 # Telegram 自动化下载工具
 
-## 最新更新 (v1.8.9)
+## 最新更新 (v1.8.10)
+- 🔧 优化项目目录结构和文档说明
+- 📚 完善技术栈和系统架构文档
+- 🛠️ 改进开发指南和调试说明
+- ✨ 更新系统要求和安装步骤
+
+## 上一版本 (v1.8.9)
 - 🚀 优化 Chrome 版本检测和匹配
 - ⚡️ 完善路径检查和错误处理
 - 🛡️ 增强程序稳定性和可靠性
+
+## 程序目录结构
+
+### 目录说明
+
+1. **.github/**
+   - `workflows/build.yml`: CI/CD自动构建配置，包含测试和发布流程
+
+2. **Commands/**
+   - 包含所有命令处理相关的类
+   - 实现命令模式的具体命令
+
+3. **docs/**
+   - `CONTRIBUTING.md`: 项目贡献指南
+   - `FAQ.md`: 常见问题解答
+
+4. **Models/**
+   - 包含所有数据模型类
+   - 定义应用程序的数据结构
+
+5. **Services/**
+   - `ChromeService.cs`: Chrome浏览器检测和管理
+   - `DownloadManager.cs`: 文件下载管理和并发控制
+   - `MessageProcessor.cs`: Telegram消息解析和处理
+
+6. **Themes/**
+   - 包含应用程序的主题和样式资源
+   - 自定义控件样式
+
+7. **ViewModels/**
+   - `MainViewModel.cs`: 主窗口的视图模型
+   - 实现MVVM模式的视图逻辑
+
+8. **Views/**
+   - `MainWindow.xaml`: 主窗口的XAML界面定义
+   - 用户界面布局和控件
+
+9. **根目录文件**
+   - `App.xaml/cs`: 应用程序入口和全局配置
+   - `appsettings.json`: 应用程序配置文件
+   - `AutomationController.cs`: 自动化控制核心类
+   - `nlog.config`: NLog日志框架配置
+   - `CHANGELOG.md`: 版本更新记录
+   - `README.md`: 项目说明文档
 
 ## 技术栈
 - **框架**: 

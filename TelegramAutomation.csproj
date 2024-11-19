@@ -15,12 +15,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-    <ChromeDriverVersion>122.0.6261.94</ChromeDriverVersion>
+    <ChromeDriverVersion>122.0.6261.5700</ChromeDriverVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="6.0.9" />
-    <PackageReference Include="InputSimulator" Version="1.0.4" />
+    <PackageReference Include="System.Text.Json" Version="6.0.9">
+      <NoWarn>NU1903</NoWarn>
+    </PackageReference>
+    <PackageReference Include="InputSimulator" Version="1.0.4">
+      <NoWarn>NU1701</NoWarn>
+    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="6.0.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.1" />
@@ -40,7 +44,7 @@
 
   <Target Name="CopyChromeDriver" AfterTargets="Build">
     <PropertyGroup>
-      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\122.0.6261.94\driver\win32\chromedriver.exe</ChromeDriverPath>
+      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\$(ChromeDriverVersion)\driver\win32\chromedriver.exe</ChromeDriverPath>
       <ChromeDriverTargetPath>$(OutputPath)chromedriver.exe</ChromeDriverTargetPath>
     </PropertyGroup>
     
@@ -52,12 +56,13 @@
       SourceFiles="$(ChromeDriverPath)" 
       DestinationFiles="$(ChromeDriverTargetPath)" 
       SkipUnchangedFiles="true" 
+      ContinueOnError="true"
     />
   </Target>
 
   <Target Name="CopyChromeDriverOnPublish" AfterTargets="Publish">
     <PropertyGroup>
-      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\122.0.6261.94\driver\win32\chromedriver.exe</ChromeDriverPath>
+      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\$(ChromeDriverVersion)\driver\win32\chromedriver.exe</ChromeDriverPath>
       <ChromeDriverPublishPath>$(PublishDir)chromedriver.exe</ChromeDriverPublishPath>
     </PropertyGroup>
     
@@ -66,6 +71,7 @@
       SourceFiles="$(ChromeDriverPath)" 
       DestinationFiles="$(ChromeDriverPublishPath)" 
       SkipUnchangedFiles="true" 
+      ContinueOnError="true"
     />
   </Target>
 </Project> 
