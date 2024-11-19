@@ -14,7 +14,6 @@ using WindowsInput;
 using System.Reflection;
 using TelegramAutomation.Models;
 using TelegramAutomation.Services;
-using WindowsInput.Native;
 using System.Diagnostics;
 
 namespace TelegramAutomation
