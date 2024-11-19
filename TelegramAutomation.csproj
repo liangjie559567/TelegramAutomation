@@ -4,7 +4,7 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.8.1</Version>
+    <Version>1.8.2</Version>
     <Authors>liangjie559567</Authors>
     <Company>TelegramAutomation</Company>
     <Description>Telegram频道自动化下载工具</Description>
@@ -25,6 +25,7 @@
     <PackageReference Include="NLog" Version="5.2.8" />
     <PackageReference Include="Selenium.WebDriver" Version="4.18.1" />
     <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="$(ChromeDriverVersion)" />
+    <PackageReference Include="System.Text.Json" Version="6.0.9" />
     <PackageReference Include="WindowsInput" Version="6.4.1" />
   </ItemGroup>
 

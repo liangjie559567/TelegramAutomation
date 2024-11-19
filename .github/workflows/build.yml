@@ -22,8 +22,9 @@ jobs:
       with:
         dotnet-version: 6.0.x
         
-    - name: Clear NuGet Cache
+    - name: Clean
       run: |
+        dotnet clean
         dotnet nuget locals all --clear
         
     - name: Configure NuGet
@@ -32,9 +33,9 @@ jobs:
         dotnet nuget remove source nuget.org || echo "Source not found"
         dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org || echo "Source already exists"
         
-    - name: Restore dependencies
+    - name: Restore
       run: |
-        dotnet restore --force --source https://api.nuget.org/v3/index.json
+        dotnet restore --force
       
     - name: Build
       run: |
