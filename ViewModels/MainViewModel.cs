@@ -287,15 +287,38 @@ namespace TelegramAutomation.ViewModels
                 AddLog($"正在发送验证码到 {PhoneNumber}...");
                 
                 // 检查 Chrome 是否安装
-                if (!IsChromeInstalled())
+                _logger.Info("开始检查 Chrome 安装状态...");
+                var chromeInstalled = IsChromeInstalled();
+                _logger.Info($"Chrome 安装检查结果: {chromeInstalled}");
+                
+                if (!chromeInstalled)
                 {
                     AddLog("错误: 未检测到 Chrome 浏览器，请先安装 Chrome");
                     Status = "请安装 Chrome";
                     return;
                 }
                 
-                await _controller.InitializeBrowser();
+                _logger.Info("开始初始化浏览器...");
+                try
+                {
+                    await _controller.InitializeBrowser();
+                    _logger.Info("浏览器初始化成功");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "浏览器初始化失败");
+                    AddLog($"浏览器初始化失败: {ex.Message}");
+                    if (ex.InnerException != null)
+                    {
+                        AddLog($"内部错误: {ex.InnerException.Message}");
+                    }
+                    throw;
+                }
+                
+                _logger.Info("开始导航到 Telegram...");
                 await _controller.NavigateToTelegram();
+                
+                _logger.Info("开始发送验证码...");
                 await _controller.RequestVerificationCode(PhoneNumber);
                 
                 AddLog("验证码已发送，请查收");
@@ -303,19 +326,36 @@ namespace TelegramAutomation.ViewModels
             }
             catch (FileNotFoundException ex)
             {
+                _logger.Error(ex, "组件缺失");
                 AddLog(ex.Message);
                 AddLog("请确保程序完整性或重新安装程序");
                 Status = "组件缺失";
+                
+                // 添加详细的错误信息
+                _logger.Error("缺失文件的完整路径信息:");
+                _logger.Error($"当前目录: {Environment.CurrentDirectory}");
+                _logger.Error($"基础目录: {AppDomain.CurrentDomain.BaseDirectory}");
+                _logger.Error($"程序目录: {Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName)}");
             }
             catch (Exception ex)
             {
-                AddLog($"发送验证码失败: {ex.Message}");
-                Status = "发送失败";
                 _logger.Error(ex, "发送验证码失败");
+                AddLog($"发送验证码失败: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    AddLog($"内部错误: {ex.InnerException.Message}");
+                }
+                Status = "发送失败";
+                
+                // 添加更多诊断信息
+                _logger.Error("异常详细信息:");
+                _logger.Error($"异常类型: {ex.GetType().FullName}");
+                _logger.Error($"堆栈跟踪: {ex.StackTrace}");
             }
             finally
             {
                 IsRequestingCode = false;
+                _logger.Info($"验证码请求处理完成，状态: {Status}");
             }
         }
 

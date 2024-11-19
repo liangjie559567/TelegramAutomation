@@ -40,6 +40,9 @@ namespace TelegramAutomation
             _downloadManager = new DownloadManager(_config);
             _messageProcessor = new MessageProcessor(_downloadManager, _config);
             _cancellationTokenSource = new CancellationTokenSource();
+            
+            // 记录环境信息
+            LogEnvironmentInfo();
         }
 
         public async Task InitializeBrowser()
@@ -178,7 +181,7 @@ namespace TelegramAutomation
                 phoneInput.Clear();
                 await Task.Delay(500); // 等待清除完成
                 
-                // 模拟人工输入
+                // 模拟人工输
                 foreach (var c in phoneNumber)
                 {
                     SimulateKeyPress(c.ToString());
@@ -447,39 +450,141 @@ namespace TelegramAutomation
         {
             try
             {
-                var driverPath = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    "chromedriver.exe"
-                );
+                var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                _logger.Info($"当前应用程序目录: {baseDir}");
+                
+                var driverPath = Path.Combine(baseDir, "chromedriver.exe");
+                _logger.Info($"目标 ChromeDriver 路径: {driverPath}");
+
+                // 获取 NuGet 包根目录
+                var nugetRoot = Environment.GetEnvironmentVariable("NUGET_PACKAGES") 
+                    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
+                _logger.Info($"NuGet 包根目录: {nugetRoot}");
 
                 if (!File.Exists(driverPath))
                 {
-                    _logger.Warn("ChromeDriver 不存在，尝试从 NuGet 包复制");
-                    var nugetPath = Path.Combine(
-                        AppDomain.CurrentDomain.BaseDirectory,
-                        "selenium.webdriver.chromedriver",
-                        "132.0.6834.600-beta",
-                        "driver",
-                        "win32",
-                        "chromedriver.exe"
-                    );
+                    _logger.Warn("ChromeDriver 不存在，尝试从可能的位置查找");
+                    
+                    // 检查所有可能的路径
+                    var possiblePaths = new[]
+                    {
+                        // 当前目录
+                        driverPath,
+                        
+                        // NuGet 包路径
+                        Path.Combine(
+                            nugetRoot,
+                            "selenium.webdriver.chromedriver",
+                            "132.0.6834.600-beta",
+                            "driver",
+                            "win32",
+                            "chromedriver.exe"
+                        ),
+                        
+                        // 发布目录
+                        Path.Combine(baseDir, "publish", "chromedriver.exe"),
+                        
+                        // 构建输出目录
+                        Path.Combine(baseDir, "bin", "Release", "net6.0-windows", "chromedriver.exe"),
+                        Path.Combine(baseDir, "bin", "Debug", "net6.0-windows", "chromedriver.exe"),
+                        
+                        // 相对路径
+                        "chromedriver.exe",
+                        @".\chromedriver.exe",
+                        @"..\chromedriver.exe"
+                    };
 
-                    if (File.Exists(nugetPath))
+                    foreach (var path in possiblePaths)
                     {
-                        File.Copy(nugetPath, driverPath, true);
-                        _logger.Info("已从 NuGet 包复制 ChromeDriver");
-                    }
-                    else
-                    {
-                        throw new FileNotFoundException("未找到 ChromeDriver");
+                        _logger.Info($"检查路径: {path}");
+                        try
+                        {
+                            if (File.Exists(path))
+                            {
+                                _logger.Info($"找到 ChromeDriver: {path}");
+                                var fileInfo = new FileInfo(path);
+                                _logger.Info($"文件大小: {fileInfo.Length:N0} 字节");
+                                _logger.Info($"创建时间: {fileInfo.CreationTime}");
+                                _logger.Info($"修改时间: {fileInfo.LastWriteTime}");
+                                
+                                try
+                                {
+                                    File.Copy(path, driverPath, true);
+                                    _logger.Info($"已复制 ChromeDriver 到: {driverPath}");
+                                    break;
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.Error(ex, $"复制 ChromeDriver 失败: {path} -> {driverPath}");
+                                    _logger.Error($"错误详情: {ex.Message}");
+                                    if (ex.InnerException != null)
+                                    {
+                                        _logger.Error($"内部错误: {ex.InnerException.Message}");
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(ex, $"检查路径失败: {path}");
+                        }
                     }
                 }
 
-                return driverPath;
+                if (!File.Exists(driverPath))
+                {
+                    var error = "未找到 ChromeDriver，已检查以下路径:";
+                    _logger.Error(error);
+                    foreach (var path in possiblePaths)
+                    {
+                        _logger.Error($"- {path}");
+                    }
+                    throw new FileNotFoundException("未找到 ChromeDriver，请确保程序完整性或重新安装程序");
+                }
+
+                // 验证 ChromeDriver 是否可用
+                try
+                {
+                    var driverInfo = FileVersionInfo.GetVersionInfo(driverPath);
+                    _logger.Info($"ChromeDriver 版本: {driverInfo.FileVersion}");
+                    
+                    // 检查文件权限
+                    var fileInfo = new FileInfo(driverPath);
+                    _logger.Info($"文件属性: {fileInfo.Attributes}");
+                    
+                    if ((fileInfo.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                    {
+                        fileInfo.Attributes &= ~FileAttributes.ReadOnly;
+                        _logger.Info("已移除只读属性");
+                    }
+
+                    // 验证文件完整性
+                    using (var fs = new FileStream(driverPath, FileMode.Open, FileAccess.Read))
+                    {
+                        _logger.Info($"文件可以正常打开，大小: {fs.Length:N0} 字节");
+                    }
+                    
+                    return driverPath;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "验证 ChromeDriver 失败");
+                    _logger.Error($"错误详情: {ex.Message}");
+                    if (ex.InnerException != null)
+                    {
+                        _logger.Error($"内部错误: {ex.InnerException.Message}");
+                    }
+                    throw new Exception("ChromeDriver 验证失败，请确保程序完整性", ex);
+                }
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "确保 ChromeDriver 版本匹配失败");
+                _logger.Error($"错误详情: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    _logger.Error($"内部错误: {ex.InnerException.Message}");
+                }
                 throw;
             }
         }
