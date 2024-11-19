@@ -16,6 +16,7 @@ using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.Windows.Media;
 using System.Net.Http;
+using System.ComponentModel;
 
 namespace TelegramAutomation.ViewModels
 {
@@ -45,7 +46,7 @@ namespace TelegramAutomation.ViewModels
         private readonly Dictionary<string, string> _errorMessages = new()
         {
             { "PHONE_NUMBER_INVALID", "无效的手机号码格式" },
-            { "PHONE_NUMBER_BANNED", "该手机号码已被封禁" },
+            { "PHONE_NUMBER_BANNED", "该手机号��已被封禁" },
             { "PHONE_CODE_INVALID", "验证码错误" },
             { "PHONE_CODE_EXPIRED", "验证码已过期" },
             { "FLOOD_WAIT", "请求过于频繁，请稍后再试" },
@@ -59,11 +60,25 @@ namespace TelegramAutomation.ViewModels
         private int _reconnectAttempts = 0;
         private readonly int MAX_RECONNECT_ATTEMPTS = 3;
         private readonly int[] RECONNECT_DELAYS = { 2000, 5000, 10000 };
+        private Brush _statusColor = Brushes.Gray;
+        private Brush _networkStatusColor = Brushes.Gray;
 
         public Brush LoginStatusColor
         {
             get => _loginStatusColor;
             set => SetProperty(ref _loginStatusColor, value);
+        }
+
+        public Brush StatusColor
+        {
+            get => _statusColor;
+            set => SetProperty(ref _statusColor, value);
+        }
+
+        public Brush NetworkStatusColor
+        {
+            get => _networkStatusColor;
+            set => SetProperty(ref _networkStatusColor, value);
         }
 
         public MainViewModel()
@@ -517,24 +532,26 @@ namespace TelegramAutomation.ViewModels
             (StopCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
 
-        public override void Dispose()
+        private bool _disposed;
+
+        protected virtual void Dispose(bool disposing)
         {
-            try
+            if (!_disposed)
             {
-                _cancellationTokenSource?.Cancel();
-                _cancellationTokenSource?.Dispose();
-                _controller?.Dispose();
-                
-                // 保存状态
-                if (IsLoggedIn)
+                if (disposing)
                 {
-                    _ = _controller.SaveSession();
+                    _cancellationTokenSource?.Dispose();
+                    _controller?.Dispose();
+                    // 清理其他托管资源
                 }
+                _disposed = true;
             }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "资源释放失败");
-            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
 
         private async Task AutoReconnect()

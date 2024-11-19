@@ -160,15 +160,17 @@ namespace TelegramAutomation
             {
                 try
                 {
+                    await Task.Delay(500); // 等待元素可交互
                     element.Click();
                     return;
                 }
-                catch (ElementClickInterceptedException)
+                catch (Exception ex) when (i < maxRetries - 1)
                 {
-                    if (i == maxRetries - 1) throw;
-                    await Task.Delay(500);
+                    _logger.Warn(ex, $"点击元素失败，尝试重试 {i + 1}/{maxRetries}");
+                    await Task.Delay(1000 * (i + 1)); // 递增延迟
                 }
             }
+            throw new TelegramAutomationException("点击元素失败，已达到最大重试次数");
         }
 
         public async Task<bool> LoginWithRetry(string phoneNumber, string verificationCode)
@@ -658,39 +660,6 @@ namespace TelegramAutomation
             {
                 _logger.Error(ex, "登录失败");
                 throw;
-            }
-        }
-
-        // 修改点击方法，添加更多重试机制
-        private async Task ClickWithRetry(IWebElement element, int maxRetries = 3)
-        {
-            for (int i = 0; i < maxRetries; i++)
-            {
-                try
-                {
-                    // 确保元素在视图中
-                    ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].scrollIntoView(true);", element);
-                    await Task.Delay(500); // 等待滚动完成
-
-                    // 尝试常规点击
-                    element.Click();
-                    return;
-                }
-                catch (ElementClickInterceptedException)
-                {
-                    if (i == maxRetries - 1) throw;
-                    
-                    // 尝试使用 JavaScript 点击
-                    try
-                    {
-                        ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].click();", element);
-                        return;
-                    }
-                    catch
-                    {
-                        await Task.Delay(RETRY_DELAYS[i]);
-                    }
-                }
             }
         }
 
