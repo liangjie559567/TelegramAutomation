@@ -43,8 +43,7 @@ jobs:
       
     - name: Test ChromeDriver
       run: |
-        # 1. 检查 NuGet 包中的 ChromeDriver
-        $nugetPath = Join-Path $env:USERPROFILE ".nuget\packages\selenium.webdriver.chromedriver\132.0.6834.600-beta\driver\win32\chromedriver.exe"
+        $nugetPath = Join-Path $env:USERPROFILE ".nuget\packages\selenium.webdriver.chromedriver\122.0.6261.5700\driver\win32\chromedriver.exe"
         Write-Host "检查 NuGet 包中的 ChromeDriver: $nugetPath"
         
         if (Test-Path $nugetPath) {

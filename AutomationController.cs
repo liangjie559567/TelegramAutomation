@@ -486,7 +486,7 @@ namespace TelegramAutomation
                 var driverPath = Path.Combine(baseDir, "chromedriver.exe");
                 _logger.Info($"目标 ChromeDriver 路径: {driverPath}");
 
-                // 获取 NuGet 包根目��
+                // 获取 NuGet 包根目
                 var nugetRoot = Environment.GetEnvironmentVariable("NUGET_PACKAGES") 
                     ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
                 _logger.Info($"NuGet 包根目录: {nugetRoot}");
@@ -615,6 +615,25 @@ namespace TelegramAutomation
                 {
                     _logger.Error($"内部错误: {ex.InnerException.Message}");
                 }
+                throw;
+            }
+        }
+
+        private async Task InitializeChromeDriver()
+        {
+            try 
+            {
+                var chromeDriverPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "chromedriver.exe");
+                if (!File.Exists(chromeDriverPath))
+                {
+                    throw new FileNotFoundException($"ChromeDriver not found at: {chromeDriverPath}");
+                }
+                
+                // ... initialization code ...
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to initialize ChromeDriver");
                 throw;
             }
         }
