@@ -4,7 +4,7 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.8.7</Version>
+    <Version>1.8.9</Version>
     <Authors>liangjie559567</Authors>
     <Company>TelegramAutomation</Company>
     <Description>Telegram频道自动化下载工具</Description>
@@ -15,7 +15,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-    <ChromeDriverVersion>132.0.6834.600-beta</ChromeDriverVersion>
+    <ChromeDriverVersion>122.0.6261.94</ChromeDriverVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,4 +37,35 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <Target Name="CopyChromeDriver" AfterTargets="Build">
+    <PropertyGroup>
+      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\122.0.6261.94\driver\win32\chromedriver.exe</ChromeDriverPath>
+      <ChromeDriverTargetPath>$(OutputPath)chromedriver.exe</ChromeDriverTargetPath>
+    </PropertyGroup>
+    
+    <Message Text="正在复制 ChromeDriver..." Importance="high" />
+    <Message Text="源路径: $(ChromeDriverPath)" Importance="high" />
+    <Message Text="目标路径: $(ChromeDriverTargetPath)" Importance="high" />
+    
+    <Copy 
+      SourceFiles="$(ChromeDriverPath)" 
+      DestinationFiles="$(ChromeDriverTargetPath)" 
+      SkipUnchangedFiles="true" 
+    />
+  </Target>
+
+  <Target Name="CopyChromeDriverOnPublish" AfterTargets="Publish">
+    <PropertyGroup>
+      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\122.0.6261.94\driver\win32\chromedriver.exe</ChromeDriverPath>
+      <ChromeDriverPublishPath>$(PublishDir)chromedriver.exe</ChromeDriverPublishPath>
+    </PropertyGroup>
+    
+    <Message Text="正在复制 ChromeDriver 到发布目录..." Importance="high" />
+    <Copy 
+      SourceFiles="$(ChromeDriverPath)" 
+      DestinationFiles="$(ChromeDriverPublishPath)" 
+      SkipUnchangedFiles="true" 
+    />
+  </Target>
 </Project> 
