@@ -3,20 +3,21 @@ using System.Windows;
 using System.Windows.Forms;
 using MessageBox = System.Windows.MessageBox;
 using System.Threading;
+using System.Collections.ObjectModel;
+using TelegramAutomation.Models;
+using TelegramAutomation.ViewModels;
 
 namespace TelegramAutomation.Views
 {
     public partial class MainWindow : Window
     {
-        private readonly AutomationController _controller;
-        private CancellationTokenSource? _cancellationTokenSource;
-        private readonly Progress<string> _progress;
+        private readonly MainViewModel _viewModel;
 
         public MainWindow()
         {
             InitializeComponent();
-            _controller = new AutomationController();
-            _progress = new Progress<string>(message => StatusText.Text = message);
+            _viewModel = new MainViewModel();
+            DataContext = _viewModel;
             InitializeEventHandlers();
         }
 
@@ -128,8 +129,6 @@ namespace TelegramAutomation.Views
                 try
                 {
                     StartButton.IsEnabled = false;
-                    PauseButton.IsEnabled = true;
-                    StopButton.IsEnabled = true;
                     StatusText.Text = "正在下载...";
                     
                     string channelLink = ChannelLinkTextBox.Text.Trim();
@@ -141,8 +140,23 @@ namespace TelegramAutomation.Views
                         return;
                     }
 
+                    // 创建下载项
+                    var downloadItem = new DownloadItem
+                    {
+                        FileName = $"文件_{DateTime.Now:yyyyMMddHHmmss}",
+                        FileSize = 1024 * 1024, // 1MB 示例
+                        Status = "准备中"
+                    };
+                    
+                    DownloadItems.Add(downloadItem);
+
+                    var progress = new Progress<int>(value =>
+                    {
+                        downloadItem.Progress = value;
+                    });
+
                     _cancellationTokenSource = new CancellationTokenSource();
-                    await _controller.StartAutomation(channelLink, savePath, _progress, _cancellationTokenSource.Token);
+                    await _controller.StartDownload(downloadItem, progress, _cancellationTokenSource.Token);
                 }
                 catch (Exception ex)
                 {
@@ -152,42 +166,38 @@ namespace TelegramAutomation.Views
                 finally
                 {
                     StartButton.IsEnabled = true;
-                    PauseButton.IsEnabled = false;
-                    StopButton.IsEnabled = false;
                 }
             };
 
             // 暂停按钮
             PauseButton.Click += (s, e) =>
             {
-                try
+                var selectedItem = DownloadListView.SelectedItem as DownloadItem;
+                if (selectedItem != null)
                 {
-                    // TODO: 实现暂停功能
-                    PauseButton.Content = PauseButton.Content.ToString() == "暂停" ? "继续" : "暂停";
-                    StatusText.Text = PauseButton.Content.ToString() == "暂停" ? "已继续" : "已暂停";
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"操作失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    if (selectedItem.IsPaused)
+                    {
+                        _controller.ResumeDownload(selectedItem.FileName);
+                        selectedItem.IsPaused = false;
+                        selectedItem.Status = "下载中";
+                    }
+                    else
+                    {
+                        _controller.PauseDownload(selectedItem.FileName);
+                        selectedItem.IsPaused = true;
+                        selectedItem.Status = "已暂停";
+                    }
                 }
             };
 
             // 停止按钮
             StopButton.Click += (s, e) =>
             {
-                try
+                var selectedItem = DownloadListView.SelectedItem as DownloadItem;
+                if (selectedItem != null)
                 {
-                    _cancellationTokenSource?.Cancel();
-                    _controller.Stop();
-                    StatusText.Text = "已停止";
-                    
-                    StartButton.IsEnabled = true;
-                    PauseButton.IsEnabled = false;
-                    StopButton.IsEnabled = false;
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"停止失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    _controller.CancelDownload(selectedItem.FileName);
+                    selectedItem.Status = "已取消";
                 }
             };
 

@@ -16,13 +16,30 @@
             <StackPanel>
                 <DockPanel Margin="0,5">
                     <Label Content="手机号码:" Width="80"/>
-                    <TextBox x:Name="PhoneNumberTextBox" Margin="0,0,10,0"/>
-                    <Button x:Name="GetCodeButton" Content="获取验证码" Width="100"/>
+                    <TextBox x:Name="PhoneNumberTextBox"
+                             IsEnabled="True"
+                             Background="White"
+                             Foreground="Black"
+                             BorderBrush="#FFABADB3"
+                             BorderThickness="1"
+                             Padding="5,3"
+                             TextWrapping="NoWrap"
+                             VerticalContentAlignment="Center"
+                             Text="{Binding PhoneNumber, UpdateSourceTrigger=PropertyChanged}"/>
                 </DockPanel>
+                
                 <DockPanel Margin="0,5">
                     <Label Content="验证码:" Width="80"/>
-                    <TextBox x:Name="VerificationCodeTextBox" Margin="0,0,10,0"/>
-                    <Button x:Name="LoginButton" Content="登录" Width="100"/>
+                    <TextBox x:Name="VerificationCodeTextBox"
+                             IsEnabled="True"
+                             Background="White"
+                             Foreground="Black"
+                             BorderBrush="#FFABADB3"
+                             BorderThickness="1"
+                             Padding="5,3"
+                             TextWrapping="NoWrap"
+                             VerticalContentAlignment="Center"
+                             Text="{Binding VerificationCode, UpdateSourceTrigger=PropertyChanged}"/>
                 </DockPanel>
             </StackPanel>
         </GroupBox>
@@ -37,12 +54,31 @@
                 
                 <DockPanel Grid.Row="0" Margin="0,5">
                     <Label Content="频道链接:" Width="80"/>
-                    <TextBox x:Name="ChannelLinkTextBox"/>
+                    <TextBox x:Name="ChannelLinkTextBox"
+                             IsEnabled="True"
+                             Background="White"
+                             Foreground="Black"
+                             BorderBrush="#FFABADB3"
+                             BorderThickness="1"
+                             Padding="5,3"
+                             TextWrapping="NoWrap"
+                             VerticalContentAlignment="Center"
+                             Text="{Binding ChannelUrl, UpdateSourceTrigger=PropertyChanged}"/>
                 </DockPanel>
                 
                 <DockPanel Grid.Row="1" Margin="0,5">
                     <Label Content="保存路径:" Width="80"/>
-                    <TextBox x:Name="SavePathTextBox" Margin="0,0,10,0"/>
+                    <TextBox x:Name="SavePathTextBox"
+                             IsEnabled="True"
+                             Background="White"
+                             Foreground="Black"
+                             BorderBrush="#FFABADB3"
+                             BorderThickness="1"
+                             Padding="5,3"
+                             TextWrapping="NoWrap"
+                             VerticalContentAlignment="Center"
+                             Text="{Binding SavePath, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,5,0"/>
                     <Button x:Name="BrowseButton" Content="浏览" Width="100"/>
                 </DockPanel>
             </Grid>
@@ -50,14 +86,53 @@
 
         <!-- 下载列表区域 -->
         <GroupBox Grid.Row="2" Header="下载列表" Margin="0,0,0,10" Padding="10">
-            <ListView x:Name="DownloadListView">
+            <ListView x:Name="DownloadListView" ItemsSource="{Binding DownloadItems}">
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Header="文件名" Width="300"/>
-                        <GridViewColumn Header="大小" Width="100"/>
-                        <GridViewColumn Header="进度" Width="200"/>
-                        <GridViewColumn Header="状态" Width="100"/>
-                        <GridViewColumn Header="操作" Width="150"/>
+                        <GridViewColumn Header="文件名" Width="300">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding FileName}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="大小" Width="100">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding FileSizeDisplay}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="进度" Width="200">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ProgressBar Value="{Binding Progress}" Maximum="100" Height="20"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="状态" Width="100">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Status}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="操作" Width="150">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="{Binding IsPaused, Converter={StaticResource BoolToPauseTextConverter}}"
+                                                Command="{Binding DataContext.PauseItemCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                CommandParameter="{Binding}"
+                                                Width="70" Margin="0,0,5,0"/>
+                                        <Button Content="取消"
+                                                Command="{Binding DataContext.CancelItemCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                CommandParameter="{Binding}"
+                                                Width="70"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
                     </GridView>
                 </ListView.View>
             </ListView>
