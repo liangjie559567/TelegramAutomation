@@ -46,7 +46,7 @@ namespace TelegramAutomation.ViewModels
         private readonly Dictionary<string, string> _errorMessages = new()
         {
             { "PHONE_NUMBER_INVALID", "无效的手机号码格式" },
-            { "PHONE_NUMBER_BANNED", "该手机号��已被封禁" },
+            { "PHONE_NUMBER_BANNED", "该手机号已被封禁" },
             { "PHONE_CODE_INVALID", "验证码错误" },
             { "PHONE_CODE_EXPIRED", "验证码已过期" },
             { "FLOOD_WAIT", "请求过于频繁，请稍后再试" },
