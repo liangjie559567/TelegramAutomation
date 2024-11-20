@@ -21,18 +21,8 @@ jobs:
       with:
         dotnet-version: 8.0.x
         
-    - name: Clean Solution
-      run: |
-        dotnet clean
-        dotnet nuget locals all --clear
-      
-    - name: Configure NuGet Sources
-      run: |
-        dotnet nuget remove source nuget.org
-        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
-        
     - name: Restore dependencies
-      run: dotnet restore --force
+      run: dotnet restore
       
     - name: Build
       run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=false
@@ -42,24 +32,29 @@ jobs:
       
     - name: Publish
       if: startsWith(github.ref, 'refs/tags/')
-      run: dotnet publish -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
+      run: |
+        dotnet publish -c Release -r win-x64 --self-contained false `
+          /p:PublishSingleFile=true `
+          /p:IncludeNativeLibrariesForSelfExtract=true `
+          /p:DebugType=embedded
       
-    - name: Create LICENSE file
+    - name: Prepare Release Files
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        echo "MIT License" > LICENSE
-        echo "" >> LICENSE
-        echo "Copyright (c) 2024 TelegramAutomation" >> LICENSE
+        mkdir release
+        copy bin\Release\net8.0-windows\win-x64\publish\TelegramAutomation.exe release\
+        copy appsettings.json release\
+        copy nlog.config release\
+        copy README.md release\
+        copy CHANGELOG.md release\
+        echo "MIT License" > release\LICENSE
         
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          bin/Release/net8.0-windows/win-x64/publish/TelegramAutomation.exe
-          LICENSE
-          README.md
-          CHANGELOG.md
+          release/*
         body_path: CHANGELOG.md
         draft: false
         prerelease: false
