@@ -686,39 +686,31 @@ namespace TelegramAutomation
             });
         }
 
-        // 添加必要的 using 语句
-        using Microsoft.Extensions.Configuration;
-        using WindowsInput;
-        using TelegramAutomation.Exceptions;
-
-        public class AutomationController
+        // 修改异步等待的写法
+        private async Task WaitForElement(IWebElement element)
         {
-            // 修改异步等待的写法
-            private async Task WaitForElement(IWebElement element)
+            // 使用显式等待替代直接 await element
+            await Task.Delay(_appSettings.WaitTimeout);
+            if (!element.Displayed)
             {
-                // 使用显式等待替代直接 await element
-                await Task.Delay(_appSettings.WaitTimeout);
-                if (!element.Displayed)
-                {
-                    throw new Exception("Element not found");
-                }
+                throw new Exception("Element not found");
             }
+        }
 
-            // 添加缺失的方法
-            public async Task StartAutomation()
-            {
-                // 实现自动化启动逻辑
-            }
+        // 添加缺失的方法
+        public async Task StartAutomation()
+        {
+            // 实现自动化启动逻辑
+        }
 
-            public async Task Stop()
-            {
-                // 实现停止逻辑
-            }
+        public async Task Stop()
+        {
+            // 实现停止逻辑
+        }
 
-            public async Task ClearSession()
-            {
-                // 实现清理会话逻辑
-            }
+        public async Task ClearSession()
+        {
+            // 实现清理会话逻辑
         }
     }
 }
