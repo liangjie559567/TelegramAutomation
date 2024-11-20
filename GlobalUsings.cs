@@ -9,4 +9,5 @@ global using WPFBrush = System.Windows.Media.Brush;
 global using WPFBrushes = System.Windows.Media.Brushes;
 global using DrawingBrush = System.Drawing.Brush;
 global using Microsoft.Extensions.DependencyInjection;
-global using NLog; 
+global using NLog;
+global using TelegramAutomation.Exceptions; 
