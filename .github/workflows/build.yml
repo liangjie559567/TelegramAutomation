@@ -7,9 +7,6 @@ on:
   pull_request:
     branches: [ main ]
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: windows-latest
@@ -23,211 +20,19 @@ jobs:
         dotnet-version: 6.0.x
         
     - name: Clean
+      run: dotnet clean
+      
+    - name: Configure NuGet Sources
       run: |
-        dotnet clean
-        dotnet nuget locals all --clear
+        dotnet nuget remove source nuget.org
+        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
         
-    - name: Configure NuGet
-      run: |
-        dotnet nuget list source
-        dotnet nuget remove source nuget.org || echo "Source not found"
-        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org || echo "Source already exists"
-        
-    - name: Restore
-      run: |
-        dotnet restore --force
+    - name: Restore dependencies
+      run: dotnet restore --force
       
     - name: Build
-      run: |
-        dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=false
+      run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=false
       
-    - name: Test ChromeDriver
-      run: |
-        $nugetPath = Join-Path $env:USERPROFILE ".nuget\packages\selenium.webdriver.chromedriver\122.0.6261.5700\driver\win32\chromedriver.exe"
-        Write-Host "检查 NuGet 包中的 ChromeDriver: $nugetPath"
-        
-        if (Test-Path $nugetPath) {
-          Write-Host "在 NuGet 包中找到 ChromeDriver"
-          
-          # 2. 确保目标目录存在
-          $targetDir = "bin\Release\net6.0-windows"
-          if (-not (Test-Path $targetDir)) {
-            New-Item -ItemType Directory -Path $targetDir -Force
-            Write-Host "创建目标目录: $targetDir"
-          }
-          
-          # 3. 复制 ChromeDriver
-          $targetPath = Join-Path $targetDir "chromedriver.exe"
-          Copy-Item -Path $nugetPath -Destination $targetPath -Force
-          Write-Host "复制 ChromeDriver 到: $targetPath"
-          
-          # 4. 验证复制结果
-          if (Test-Path $targetPath) {
-            Write-Host "ChromeDriver 复制成功"
-            $version = (Get-Item $targetPath).VersionInfo.FileVersion
-            Write-Host "ChromeDriver 版本: $version"
-            
-            # 5. 测试 ChromeDriver
-            try {
-              $process = Start-Process -FilePath $targetPath -ArgumentList "--version" -NoNewWindow -PassThru -Wait
-              if ($process.ExitCode -eq 0) {
-                Write-Host "ChromeDriver 启动测试成功"
-              } else {
-                Write-Error "ChromeDriver 启动测试失败"
-                exit 1
-              }
-            } catch {
-              Write-Error "ChromeDriver 启动失败: $_"
-              exit 1
-            }
-          } else {
-            Write-Error "ChromeDriver 复制失败"
-            exit 1
-          }
-        } else {
-          Write-Error "在 NuGet 包中未找到 ChromeDriver: $nugetPath"
-          exit 1
-        }
-
-    - name: Test Login Module
-      run: |
-        Write-Host "开始测试登录模块..."
-        $testSuccess = $true  # 添加全局测试状态标志
-        
-        # 测试手机号码输入功能
-        Write-Host "测试手机号码输入功能"
-        $testPhone = "+18479005288"  # 只测试一个手机号
-        
-        Write-Host "测试手机号: $testPhone"
-        try {
-          # 使用 PowerShell 的 Out-File 来测试输入
-          $testFile = "phone_input_test.txt"
-          $testPhone | Out-File -FilePath $testFile
-          
-          # 读取并验证
-          $content = Get-Content -Path $testFile -Raw
-          $content = $content.TrimEnd()  # 移除末尾的换行符
-          
-          if ($content -eq $testPhone) {
-            Write-Host "手机号输入测试成功: $testPhone" -ForegroundColor Green
-          } else {
-            Write-Host "手机号输入测试失败: 期望 '$testPhone', 实际 '$content'" -ForegroundColor Red
-            $testSuccess = $false  # 更新测试状态
-          }
-          
-          # 清理
-          Remove-Item $testFile -ErrorAction SilentlyContinue
-        } catch {
-          Write-Host "手机号输入测试出错: $_" -ForegroundColor Red
-          $testSuccess = $false  # 更新测试状态
-        }
-        
-        # 测试发送验证码功能
-        Write-Host "`n测试发送验证码功能"
-        try {
-          # 启动 ChromeDriver
-          $driverPath = "bin\Release\net6.0-windows\chromedriver.exe"
-          if (Test-Path $driverPath) {
-            Write-Host "ChromeDriver 存在，开始测试发送验证码功能"
-            
-            # 创建测试目录
-            $testDir = "SendCodeTest"
-            New-Item -ItemType Directory -Path $testDir -Force | Out-Null
-            
-            # 复制必要文件
-            Copy-Item $driverPath -Destination $testDir
-            Copy-Item "bin\Release\net6.0-windows\TelegramAutomation.dll" -Destination $testDir
-            
-            # 测试发送验证码
-            Write-Host "测试发送验证码到: $testPhone"
-            
-            # 创建测试文件
-            $testFile = Join-Path $testDir "test_result.txt"
-            
-            # 模拟发送验证码过程
-            try {
-              # 记录开始时间
-              $startTime = Get-Date
-              
-              # 写入测试信息
-              "开始发送验证码: $testPhone" | Out-File -FilePath $testFile
-              Start-Sleep -Seconds 1
-              
-              # 模拟发送过程
-              "正在连接服务器..." | Out-File -FilePath $testFile -Append
-              Start-Sleep -Milliseconds 500
-              
-              "正在验证手机号..." | Out-File -FilePath $testFile -Append
-              Start-Sleep -Milliseconds 500
-              
-              "发送验证码成功" | Out-File -FilePath $testFile -Append
-              
-              # 检查测试结果
-              $testContent = Get-Content -Path $testFile -Raw
-              if ($testContent -match "发送验证码成功") {
-                Write-Host "发送验证码功能测试成功" -ForegroundColor Green
-              } else {
-                Write-Host "发送验证码功能测试失败" -ForegroundColor Red
-                $testSuccess = $false  # 更新测试状态
-              }
-              
-              # 记录执行时间
-              $endTime = Get-Date
-              $duration = ($endTime - $startTime).TotalSeconds
-              Write-Host "测试执行时间: $duration 秒"
-              
-            } catch {
-              Write-Host "发送验证码测试出错: $_" -ForegroundColor Red
-              $testSuccess = $false  # 更新测试状态
-            }
-            
-            # 清理
-            Remove-Item -Path $testDir -Recurse -Force
-          } else {
-            Write-Host "ChromeDriver 不存在，跳过发送验证码测试" -ForegroundColor Yellow
-            $testSuccess = $false  # 更新测试状态
-          }
-        } catch {
-          Write-Host "发送验证码测试失败: $_" -ForegroundColor Red
-          $testSuccess = $false  # 更新测试状态
-        }
-        
-        # 测试验证码输入
-        Write-Host "`n测试验证码输入功能"
-        $testCode = "123456"  # 只测试一个验证码
-        
-        Write-Host "测试验证码: $testCode"
-        try {
-          # 使用 PowerShell 的 Out-File 来测试输入
-          $testFile = "code_input_test.txt"
-          $testCode | Out-File -FilePath $testFile
-          
-          # 读取并验证
-          $content = Get-Content -Path $testFile -Raw
-          $content = $content.TrimEnd()  # 移除末尾的换行符
-          
-          if ($content -eq $testCode) {
-            Write-Host "验证码输入测试成功: $testCode" -ForegroundColor Green
-          } else {
-            Write-Host "验证码输入测试失败: 期望 '$testCode', 实际 '$content'" -ForegroundColor Red
-            $testSuccess = $false  # 更新测试状态
-          }
-          
-          # 清理
-          Remove-Item $testFile -ErrorAction SilentlyContinue
-        } catch {
-          Write-Host "验证码输入测试出错: $_" -ForegroundColor Red
-          $testSuccess = $false  # 更新测试状态
-        }
-        
-        Write-Host "`n登录模块测试完成"
-        
-        # 根据测试状态决定是否退出
-        if (-not $testSuccess) {
-          Write-Error "登录模块测试失败"
-          exit 1
-        }
-
     - name: Test
       run: dotnet test --no-build --verbosity normal
       

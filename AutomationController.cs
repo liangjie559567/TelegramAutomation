@@ -21,6 +21,7 @@ using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using TelegramAutomation.Exceptions;
 using TelegramAutomation.Helpers;
+using InputSimulatorStandard;
 
 namespace TelegramAutomation
 {
@@ -796,7 +797,7 @@ namespace TelegramAutomation
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "清理会话失��");
+                _logger.Error(ex, "清理会话失");
                 throw;
             }
         }
@@ -872,7 +873,7 @@ namespace TelegramAutomation
 
                     try
                     {
-                        // 处理每条消��
+                        // 处理每条消息
                         await ProcessMessage(message, savePath, progress);
                         progress.Report($"处理进度: {current}/{total}");
                     }
