@@ -14,14 +14,12 @@ using TelegramAutomation.Exceptions;
 
 namespace TelegramAutomation
 {
-    public class AutomationController
+    public class AutomationController : IDisposable
     {
-        private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
+        private readonly IWebDriver? _driver;
         private readonly IInputSimulator _inputSimulator;
         private readonly AppSettings _settings;
         private readonly ChromeService _chromeService;
-        private IWebDriver _driver;
-        private readonly string _downloadPath;
         private bool _isInitialized;
         private CancellationTokenSource? _cancellationTokenSource;
 
@@ -29,36 +27,52 @@ namespace TelegramAutomation
         {
             _settings = settings;
             _chromeService = chromeService;
-            _downloadPath = settings.DefaultSavePath;
             _inputSimulator = new InputSimulator();
-            Directory.CreateDirectory(_downloadPath);
         }
 
-        private async Task SimulateInput(string text)
+        public async Task InitializeAsync()
         {
-            foreach (var c in text)
-            {
-                _inputSimulator.Keyboard.TextEntry(c.ToString());
-                await Task.Delay(50);
-            }
+            if (_isInitialized) return;
+            _driver = await Task.Run(() => _chromeService.InitializeDriver());
+            _isInitialized = true;
         }
 
-        private async Task PressEnter()
+        public async Task StartAutomation(string channelUrl, string savePath, 
+            IProgress<string> progress, CancellationToken token)
         {
-            try
-            {
-                await Task.Run(() => {
-                    _inputSimulator.Keyboard.KeyPress(VirtualKeyCode.RETURN);
-                    Thread.Sleep(50);
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "按回车键失败");
-                throw;
-            }
+            // 实现自动化逻辑
         }
 
-        // ... 其他代码保持不变 ...
+        public async Task RequestVerificationCode(string phoneNumber)
+        {
+            // 实现请求验证码逻辑
+        }
+
+        public async Task<bool> LoginWithRetry(string verificationCode)
+        {
+            // 实现登录逻辑
+        }
+
+        public async Task<bool> VerifyLoginStatusComprehensive()
+        {
+            // 实现登录状态验证
+        }
+
+        public async Task ClearSession()
+        {
+            // 实现清除会话
+        }
+
+        public async Task Stop()
+        {
+            _cancellationTokenSource?.Cancel();
+            // 实现停止逻辑
+        }
+
+        public void Dispose()
+        {
+            _driver?.Dispose();
+            _cancellationTokenSource?.Dispose();
+        }
     }
 }
