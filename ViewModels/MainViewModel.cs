@@ -14,7 +14,6 @@ using System.Diagnostics;
 using Microsoft.Win32;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
-using System.Windows.Media;
 using System.Net.Http;
 using System.ComponentModel;
 
@@ -108,7 +107,7 @@ namespace TelegramAutomation.ViewModels
             {
                 _logger.Error(ex, "检查登录状态失败");
                 LoginStatusMessage = "登录状态检查失败";
-                LoginStatusColor = Brushes.Red;
+                LoginStatusColor = System.Windows.Media.Brushes.Red;
                 throw;
             }
         }
