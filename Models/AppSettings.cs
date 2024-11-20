@@ -13,6 +13,8 @@ namespace TelegramAutomation.Models
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "TelegramDownloads"
         );
+        public int WaitTimeout { get; set; }
+        public int LoginWaitTime { get; set; }
         
         public static AppSettings Load()
         {

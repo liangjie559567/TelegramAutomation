@@ -20,7 +20,7 @@ using System.ComponentModel;
 
 namespace TelegramAutomation.ViewModels
 {
-    public class MainViewModel : ViewModelBase, IDisposable
+    public class MainViewModel : ViewModelBase, IDisposable, INotifyPropertyChanged
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
         private readonly AutomationController _controller;
@@ -381,7 +381,7 @@ namespace TelegramAutomation.ViewModels
             LogContent = _logBuilder.ToString();
         }
 
-        private bool ValidatePhoneNumber(string phoneNumber)
+        public bool ValidatePhoneNumber(string phoneNumber)
         {
             if (string.IsNullOrWhiteSpace(phoneNumber))
                 return false;
@@ -628,6 +628,17 @@ namespace TelegramAutomation.ViewModels
 
                 await Task.Delay(TimeSpan.FromSeconds(30));
             }
+        }
+
+        public async Task StartAutomation()
+        {
+            // 实现自动化启动逻辑
+        }
+
+        public async Task SomeMethod()
+        {
+            // 将 var result = VoidMethod(); 改为
+            await Task.Run(() => VoidMethod());
         }
     }
 }

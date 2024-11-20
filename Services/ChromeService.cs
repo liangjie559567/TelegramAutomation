@@ -260,5 +260,25 @@ namespace TelegramAutomation.Services
                 _logger.Error(ex, "清理旧驱动文件失败");
             }
         }
+
+        private IWebDriver SetUpDriver(string downloadPath)
+        {
+            var options = new ChromeOptions();
+            options.AddUserProfilePreference("download.default_directory", downloadPath);
+            // 其他设置...
+            return new ChromeDriver(options);
+        }
+
+        private string DetectChromePath()
+        {
+            // 实现 Chrome 路径检测逻辑
+            return @"C:\Program Files\Google\Chrome\Application\chrome.exe";
+        }
+
+        private int CompareVersions(string v1, string v2)
+        {
+            // 实现版本比较逻辑
+            return Version.Parse(v1).CompareTo(Version.Parse(v2));
+        }
     }
 } 
