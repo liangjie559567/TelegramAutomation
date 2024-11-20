@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>1.8.31</Version>
+    <Version>1.8.32</Version>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
   </PropertyGroup>
 

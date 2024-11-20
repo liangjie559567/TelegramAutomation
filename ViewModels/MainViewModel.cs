@@ -630,11 +630,6 @@ namespace TelegramAutomation.ViewModels
             }
         }
 
-        public async Task StartAutomation()
-        {
-            // 实现自动化启动逻辑
-        }
-
         public async Task SomeMethod()
         {
             // 将 var result = VoidMethod(); 改为
