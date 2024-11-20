@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write
     
     steps:
     - uses: actions/checkout@v3
@@ -29,11 +31,6 @@ jobs:
         dotnet nuget remove source nuget.org
         dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
         
-    - name: Clear NuGet Cache
-      run: |
-        dotnet nuget locals all --clear
-        dotnet restore --no-cache
-        
     - name: Restore dependencies
       run: dotnet restore --force
       
@@ -47,14 +44,22 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/')
       run: dotnet publish -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true
       
+    - name: Create LICENSE file
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        echo "MIT License" > LICENSE
+        echo "" >> LICENSE
+        echo "Copyright (c) 2024 TelegramAutomation" >> LICENSE
+        
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          bin/Release/net6.0-windows/win-x64/publish/TelegramAutomation.exe
+          bin/Release/net8.0-windows/win-x64/publish/TelegramAutomation.exe
           LICENSE
           README.md
+          CHANGELOG.md
         body_path: CHANGELOG.md
         draft: false
         prerelease: false
