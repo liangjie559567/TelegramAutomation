@@ -8,6 +8,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using InputSimulatorStandard;
 using InputSimulatorStandard.Native;
+using TelegramAutomation.Models;
+using TelegramAutomation.Services;
+using TelegramAutomation.Exceptions;
 
 namespace TelegramAutomation
 {
@@ -15,10 +18,10 @@ namespace TelegramAutomation
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
         private readonly IInputSimulator _inputSimulator;
-        private IWebDriver _driver;
-        private readonly string _downloadPath;
         private readonly AppSettings _settings;
         private readonly ChromeService _chromeService;
+        private IWebDriver _driver;
+        private readonly string _downloadPath;
         private bool _isInitialized;
         private CancellationTokenSource? _cancellationTokenSource;
 
