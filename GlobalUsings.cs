@@ -3,6 +3,7 @@ global using System.Collections.Generic;
 global using System.Threading;
 global using System.Threading.Tasks;
 global using System.Windows;
+global using System.Windows.Media;
 global using WinForms = System.Windows.Forms;
 global using WPFBrush = System.Windows.Media.Brush;
 global using WPFBrushes = System.Windows.Media.Brushes;

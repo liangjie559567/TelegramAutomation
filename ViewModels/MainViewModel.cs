@@ -56,26 +56,26 @@ namespace TelegramAutomation.ViewModels
             { "CHROME_VERSION_MISMATCH", "Chrome版本不兼容，请更新" }
         };
 
-        private Brush _loginStatusColor = Brushes.Black;
+        private SolidColorBrush _loginStatusColor = new(Colors.Black);
         private int _reconnectAttempts = 0;
         private readonly int MAX_RECONNECT_ATTEMPTS = 3;
         private readonly int[] RECONNECT_DELAYS = { 2000, 5000, 10000 };
-        private Brush _statusColor = Brushes.Gray;
-        private Brush _networkStatusColor = Brushes.Gray;
+        private SolidColorBrush _statusColor = new(Colors.Gray);
+        private SolidColorBrush _networkStatusColor = new(Colors.Gray);
 
-        public Brush LoginStatusColor
+        public SolidColorBrush LoginStatusColor
         {
             get => _loginStatusColor;
             set => SetProperty(ref _loginStatusColor, value);
         }
 
-        public Brush StatusColor
+        public SolidColorBrush StatusColor
         {
             get => _statusColor;
             set => SetProperty(ref _statusColor, value);
         }
 
-        public Brush NetworkStatusColor
+        public SolidColorBrush NetworkStatusColor
         {
             get => _networkStatusColor;
             set => SetProperty(ref _networkStatusColor, value);
@@ -423,7 +423,7 @@ namespace TelegramAutomation.ViewModels
             if (string.IsNullOrWhiteSpace(VerificationCode))
             {
                 LoginStatusMessage = "请输入验证码";
-                LoginStatusColor = Brushes.Red;
+                LoginStatusColor = new SolidColorBrush(Colors.Red);
                 return;
             }
 
@@ -431,13 +431,13 @@ namespace TelegramAutomation.ViewModels
             {
                 IsLoggingIn = true;
                 LoginStatusMessage = "正在登录...";
-                LoginStatusColor = Brushes.Black;
+                LoginStatusColor = new SolidColorBrush(Colors.Black);
 
                 await _controller.LoginWithRetry(PhoneNumber, VerificationCode);
                 
                 IsLoggedIn = true;
                 LoginStatusMessage = "登录成功";
-                LoginStatusColor = Brushes.Green;
+                LoginStatusColor = new SolidColorBrush(Colors.Green);
                 _logger.Info("登录成功");
 
                 // 清空验证码
@@ -494,7 +494,7 @@ namespace TelegramAutomation.ViewModels
         private void HandleError(Exception ex, string defaultMessage)
         {
             string errorMessage = defaultMessage;
-            LoginStatusColor = Brushes.Red;
+            LoginStatusColor = new SolidColorBrush(Colors.Red);
 
             // 检查是否是已知错误
             foreach (var pair in _errorMessages)
@@ -561,7 +561,7 @@ namespace TelegramAutomation.ViewModels
                 try
                 {
                     LoginStatusMessage = $"正在尝试重新连接... ({_reconnectAttempts + 1}/{MAX_RECONNECT_ATTEMPTS})";
-                    LoginStatusColor = Brushes.Orange;
+                    LoginStatusColor = new SolidColorBrush(Colors.Orange);
 
                     await Task.Delay(RECONNECT_DELAYS[_reconnectAttempts]);
                     await _controller.InitializeAsync();
@@ -570,7 +570,7 @@ namespace TelegramAutomation.ViewModels
                     {
                         IsLoggedIn = true;
                         LoginStatusMessage = "重新连接成功";
-                        LoginStatusColor = Brushes.Green;
+                        LoginStatusColor = new SolidColorBrush(Colors.Green);
                         _reconnectAttempts = 0;
                         return;
                     }
@@ -585,7 +585,7 @@ namespace TelegramAutomation.ViewModels
             }
 
             LoginStatusMessage = "重新连接失败，请手动重新登录";
-            LoginStatusColor = Brushes.Red;
+            LoginStatusColor = new SolidColorBrush(Colors.Red);
             IsLoggedIn = false;
             _reconnectAttempts = 0;
         }
@@ -602,7 +602,7 @@ namespace TelegramAutomation.ViewModels
                     if (!value && IsLoggedIn)
                     {
                         LoginStatusMessage = "网络连接已断开，等待重连...";
-                        LoginStatusColor = Brushes.Orange;
+                        LoginStatusColor = new SolidColorBrush(Colors.Orange);
                         _ = AutoReconnect();
                     }
                 }
