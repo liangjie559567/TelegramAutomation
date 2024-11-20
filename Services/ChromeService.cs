@@ -153,7 +153,11 @@ namespace TelegramAutomation.Services
             catch (Exception ex)
             {
                 _logger.Error(ex, "获取Chrome版本失败");
-                throw new ChromeException("无法获取Chrome版本", ex);
+                throw new ChromeException(
+                    "无法获取Chrome版本", 
+                    "VERSION_ERROR",
+                    ex.Message
+                );
             }
         }
 
