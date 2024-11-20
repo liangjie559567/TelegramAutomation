@@ -25,74 +25,40 @@ namespace TelegramAutomation.Services
             _searchPaths = settings.ChromeDriver.SearchPaths;
         }
 
-        public async Task<bool> ValidateChromeEnvironment()
+        public bool ValidateChromeEnvironment()
         {
             try
             {
-                // 检查 Chrome 是否安装
-                var chromePath = await DetectChromePath();
+                var chromePath = DetectChromePath();
                 if (string.IsNullOrEmpty(chromePath))
                 {
                     throw new ChromeException("未找到 Chrome 浏览器", "CHROME_NOT_FOUND");
                 }
 
-                // 检查 Chrome 版本
                 var version = GetChromeVersion(chromePath);
                 if (CompareVersions(version, MINIMUM_CHROME_VERSION) < 0)
                 {
-                    throw new ChromeException(
-                        $"Chrome 版本不匹配: 当前版本 {version}, 需要 {MINIMUM_CHROME_VERSION} 或更高版本",
-                        "CHROME_VERSION_MISMATCH"
-                    );
+                    throw new ChromeException($"Chrome 版本过低，需要 {MINIMUM_CHROME_VERSION} 或更高版本", "CHROME_VERSION_MISMATCH");
                 }
-
-                // 自动管理 ChromeDriver
-                await SetupChromeDriver(version);
 
                 return true;
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "Chrome 环境验证失败");
-                throw;
+                return false;
             }
         }
 
-        private async Task SetupChromeDriver(string chromeVersion)
+        private IWebDriver SetUpDriver(string downloadPath)
         {
-            try
+            var options = new ChromeOptions();
+            options.AddUserProfilePreference("download.default_directory", downloadPath);
+            foreach (var option in _settings.ChromeDriver.Options)
             {
-                _logger.Info($"正在设置 ChromeDriver，Chrome 版本: {chromeVersion}");
-
-                var manager = new DriverManager();
-                var config = new ChromeConfig();
-                
-                // 设置下载路径
-                var driverPath = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    "WebDriver"
-                );
-
-                // 自动下载匹配的 ChromeDriver
-                await Task.Run(() => manager
-                    .SetUpDriver(
-                        config,
-                        version: chromeVersion,
-                        architecture: Architecture.Auto,
-                        downloadPath: driverPath
-                    ));
-
-                _logger.Info($"ChromeDriver 设置完成，路径: {driverPath}");
+                options.AddArgument($"--{option.Key}={option.Value}");
             }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "设置 ChromeDriver 失败");
-                throw new ChromeException(
-                    "ChromeDriver 设置失败",
-                    "CHROMEDRIVER_SETUP_FAILED",
-                    ex
-                );
-            }
+            return new ChromeDriver(options);
         }
 
         public IWebDriver InitializeDriver()
@@ -259,14 +225,6 @@ namespace TelegramAutomation.Services
             {
                 _logger.Error(ex, "清理旧驱动文件失败");
             }
-        }
-
-        private IWebDriver SetUpDriver(string downloadPath)
-        {
-            var options = new ChromeOptions();
-            options.AddUserProfilePreference("download.default_directory", downloadPath);
-            // 其他设置...
-            return new ChromeDriver(options);
         }
 
         private string DetectChromePath()

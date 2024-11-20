@@ -57,8 +57,13 @@ namespace TelegramAutomation
         private const int DEFAULT_TIMEOUT = 30; // 默认超时时间（秒）
         private const int ELEMENT_TIMEOUT = 10; // 元素等待超时时间（秒）
 
-        public AutomationController()
+        private readonly IKeyboardSimulator _keyboard;
+        private readonly AppSettings _appSettings;
+
+        public AutomationController(AppSettings settings)
         {
+            _appSettings = settings;
+            _keyboard = new InputSimulator().Keyboard;
             _config = LoadConfiguration();
             _driver = InitializeWebDriver();
             _wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(_config.WaitTimeout));
@@ -292,8 +297,7 @@ namespace TelegramAutomation
 
         private void SimulateKeyPress(string key)
         {
-            var sim = new InputSimulator();
-            sim.Keyboard.TextEntry(key);
+            _keyboard.TextEntry(key);
         }
 
         private async Task<T> RetryOperation<T>(Func<Task<T>> operation, int maxRetries = 3)
@@ -520,7 +524,7 @@ namespace TelegramAutomation
         {
             try
             {
-                // 等待验证码输入框
+                // 等验证码输入框
                 var codeInput = await WaitForElementInteractive(_loginElements["CodeInput"]);
                 
                 // 清除并输入验证码
@@ -608,7 +612,7 @@ namespace TelegramAutomation
             }, $"等待元素 {elementName}");
         }
 
-        // 修改登录方法，添加更多等待和重试
+        // 修改登录方法，添加更多等��和重试
         public async Task<bool> Login(string phoneNumber, string verificationCode)
         {
             try
@@ -698,19 +702,289 @@ namespace TelegramAutomation
         }
 
         // 添加缺失的方法
-        public async Task StartAutomation()
+        public async Task StartAutomation(string channelUrl, string savePath, 
+            IProgress<string> progress, CancellationToken token)
         {
-            // 实现自动化启动逻辑
+            try
+            {
+                progress.Report("正在初始化...");
+                await EnsureLoginPageLoaded();
+
+                progress.Report("正在导航到频道...");
+                await NavigateToChannel(channelUrl);
+
+                progress.Report("开始下载内容...");
+                await DownloadChannelContent(savePath, progress, token);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Info("任务已取消");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "自动化任务失败");
+                throw;
+            }
         }
 
+        // 实现停止逻辑
         public async Task Stop()
         {
-            // 实现停止逻辑
+            try
+            {
+                _logger.Info("正在停止任务...");
+                // 清理资源
+                await CleanupResources();
+                _logger.Info("任务已停止");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "停止任务失败");
+                throw;
+            }
         }
 
+        // 实现清理会话逻辑
         public async Task ClearSession()
         {
-            // 实现清理会话逻辑
+            try
+            {
+                _logger.Info("正在清理会话...");
+                
+                // 删除会话文件
+                if (File.Exists(SESSION_FILE))
+                {
+                    await DeleteFileAsync(SESSION_FILE);
+                }
+
+                // 清理浏览器缓存
+                await ClearBrowserCache();
+
+                // 重置状态
+                _isLoggedIn = false;
+                _currentPhoneNumber = string.Empty;
+
+                _logger.Info("会话已清理");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "清理会话失败");
+                throw;
+            }
+        }
+
+        // 添加等待登录完成的方法
+        private async Task<bool> WaitForLoginComplete(int timeoutSeconds = 30)
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(timeoutSeconds));
+
+                // 等待登录成功的标志
+                await Task.Run(() => wait.Until(d => 
+                    d.FindElements(By.CssSelector(".chat-list")).Count > 0 ||
+                    d.FindElements(By.CssSelector(".error-message")).Count > 0
+                ), cts.Token);
+
+                // 检查是否登录成功
+                return await VerifyLoginStatus();
+            }
+            catch (WebDriverTimeoutException)
+            {
+                _logger.Error("登录等待超时");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "等待登录完成时发生错误");
+                return false;
+            }
+        }
+
+        // 添加导航到频道的方法
+        private async Task NavigateToChannel(string channelUrl)
+        {
+            try
+            {
+                _driver.Navigate().GoToUrl(channelUrl);
+                await WaitForPageLoadComplete();
+                
+                // 等待频道内容加载
+                var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(30));
+                await Task.Run(() => wait.Until(d => 
+                    d.FindElements(By.CssSelector(".message-list")).Count > 0
+                ));
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "导航到频道失败");
+                throw;
+            }
+        }
+
+        // 添加下载频道内容的方法
+        private async Task DownloadChannelContent(string savePath, 
+            IProgress<string> progress, CancellationToken token)
+        {
+            try
+            {
+                // 创建保存目录
+                Directory.CreateDirectory(savePath);
+
+                // 获取所有消息元素
+                var messages = await GetChannelMessages(token);
+                var total = messages.Count;
+                var current = 0;
+
+                foreach (var message in messages)
+                {
+                    token.ThrowIfCancellationRequested();
+                    current++;
+
+                    try
+                    {
+                        // 处理每条消息
+                        await ProcessMessage(message, savePath, progress);
+                        progress.Report($"处理进度: {current}/{total}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, $"处理消息失败 ({current}/{total})");
+                        // 继续处理下一条消息
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "下载频道内容失败");
+                throw;
+            }
+        }
+
+        // 添加获取频道消息的方法
+        private async Task<IReadOnlyCollection<IWebElement>> GetChannelMessages(CancellationToken token)
+        {
+            var messages = new List<IWebElement>();
+            var lastCount = 0;
+            var sameCountTimes = 0;
+            const int MAX_SAME_COUNT = 3;
+
+            while (true)
+            {
+                token.ThrowIfCancellationRequested();
+
+                // 获取当前页面的消息
+                var currentMessages = _driver.FindElements(By.CssSelector(".message"));
+                
+                if (currentMessages.Count == lastCount)
+                {
+                    sameCountTimes++;
+                    if (sameCountTimes >= MAX_SAME_COUNT)
+                    {
+                        break; // 可能已到达底部
+                    }
+                }
+                else
+                {
+                    sameCountTimes = 0;
+                }
+
+                lastCount = currentMessages.Count;
+                messages = currentMessages.ToList();
+
+                // 滚动到底部
+                await ScrollToBottom();
+                await Task.Delay(500, token); // 等待新内容加载
+            }
+
+            return messages;
+        }
+
+        // 添加滚动到底部的方法
+        private async Task ScrollToBottom()
+        {
+            await Task.Run(() => {
+                ((IJavaScriptExecutor)_driver).ExecuteScript(
+                    "window.scrollTo(0, document.body.scrollHeight);"
+                );
+            });
+        }
+
+        // 添加清理浏览器缓存的方法
+        private async Task ClearBrowserCache()
+        {
+            try
+            {
+                await Task.Run(() => {
+                    _driver.Navigate().GoToUrl("chrome://settings/clearBrowserData");
+                    // 等待页面加载
+                    Thread.Sleep(1000);
+                    // 模拟按下 Tab 和 Enter 键来清理数据
+                    _keyboard.KeyPress(VirtualKeyCode.TAB);
+                    _keyboard.KeyPress(VirtualKeyCode.RETURN);
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "清理浏览器缓存失败");
+            }
+        }
+
+        // 添加清理资源的方法
+        private async Task CleanupResources()
+        {
+            try
+            {
+                // 关闭所有打开的窗口
+                var windows = _driver.WindowHandles.ToList();
+                foreach (var window in windows)
+                {
+                    _driver.SwitchTo().Window(window);
+                    _driver.Close();
+                }
+
+                // 清理临时文件
+                var tempFiles = Directory.GetFiles(Path.GetTempPath(), "scoped_dir*");
+                foreach (var file in tempFiles)
+                {
+                    try
+                    {
+                        await DeleteFileAsync(file);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn(ex, $"清理临时文件失败: {file}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "清理资源失败");
+            }
+        }
+
+        // 修改异步等待方法
+        private async Task WaitForElement(IWebElement element, int timeoutMs = 5000)
+        {
+            var wait = new WebDriverWait(_driver, TimeSpan.FromMilliseconds(timeoutMs));
+            await Task.Run(() => wait.Until(d => element.Displayed));
+        }
+
+        // 修改文件删除方法
+        private async Task DeleteFileAsync(string filePath)
+        {
+            await Task.Run(() => {
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
+            });
         }
     }
 }

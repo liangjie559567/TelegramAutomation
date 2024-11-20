@@ -635,5 +635,31 @@ namespace TelegramAutomation.ViewModels
             // 将 var result = VoidMethod(); 改为
             await Task.Run(() => VoidMethod());
         }
+
+        public async Task PauseDownload()
+        {
+            if (_controller != null)
+            {
+                await _controller.Stop();
+                Status = "已暂停";
+                AddLog("下载已暂停");
+            }
+        }
+
+        public async Task StopDownload()
+        {
+            if (_controller != null)
+            {
+                await _controller.Stop();
+                Status = "已停止";
+                AddLog("下载已停止");
+            }
+        }
+
+        public async Task StartAutomation(string channelUrl, string savePath, 
+            IProgress<string> progress, CancellationToken token)
+        {
+            // ... 实现代码 ...
+        }
     }
 }
