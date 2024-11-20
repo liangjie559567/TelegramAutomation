@@ -19,13 +19,20 @@ jobs:
       with:
         dotnet-version: 6.0.x
         
-    - name: Clean
-      run: dotnet clean
+    - name: Clean Solution
+      run: |
+        dotnet clean
+        dotnet nuget locals all --clear
       
     - name: Configure NuGet Sources
       run: |
         dotnet nuget remove source nuget.org
         dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org
+        
+    - name: Clear NuGet Cache
+      run: |
+        dotnet nuget locals all --clear
+        dotnet restore --no-cache
         
     - name: Restore dependencies
       run: dotnet restore --force
