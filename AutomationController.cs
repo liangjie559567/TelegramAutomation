@@ -118,13 +118,36 @@ namespace TelegramAutomation
 
         public async Task ClearSession()
         {
-            // 实现清除会话
+            try
+            {
+                await Task.Run(() => {
+                    // 实现清除会话逻辑
+                    _driver?.Manage().Cookies.DeleteAllCookies();
+                    Thread.Sleep(100);
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "清除会话失败");
+                throw;
+            }
         }
 
         public async Task Stop()
         {
-            _cancellationTokenSource?.Cancel();
-            // 实现停止逻辑
+            try
+            {
+                _cancellationTokenSource?.Cancel();
+                await Task.Run(() => {
+                    _driver?.Quit();
+                    Thread.Sleep(100);
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "停止失败");
+                throw;
+            }
         }
 
         public void Dispose()

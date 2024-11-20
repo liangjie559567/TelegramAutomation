@@ -102,7 +102,7 @@ namespace TelegramAutomation.Services
                 throw new ChromeException(
                     "初始化 ChromeDriver 失败",
                     "CHROMEDRIVER_INIT_FAILED",
-                    ex
+                    ex.Message
                 );
             }
         }
@@ -184,7 +184,11 @@ namespace TelegramAutomation.Services
             catch (Exception ex)
             {
                 _logger.Error(ex, "获取ChromeDriver版本失败");
-                throw new ChromeDriverException("无法获取ChromeDriver版本", ex);
+                throw new ChromeDriverException(
+                    "无法获取ChromeDriver版本", 
+                    "DRIVER_VERSION_ERROR",
+                    ex.ToString()
+                );
             }
         }
 
@@ -264,7 +268,11 @@ namespace TelegramAutomation.Services
             catch (Exception ex)
             {
                 _logger.Error(ex, "检查登录状态失败");
-                throw new LoginException("检查登录状态失败", ex.Message);
+                throw new LoginException(
+                    "检查登录状态失败", 
+                    "LOGIN_CHECK_FAILED",
+                    ex.ToString()
+                );
             }
         }
     }

@@ -61,6 +61,13 @@ namespace TelegramAutomation.ViewModels
             set => SetProperty(ref _loginStatusColor, value);
         }
 
+        private System.Windows.Media.Brush _statusColor = System.Windows.Media.Brushes.Gray;
+        public System.Windows.Media.Brush StatusColor
+        {
+            get => _statusColor;
+            set => SetProperty(ref _statusColor, value);
+        }
+
         public MainViewModel()
         {
             _settings = AppSettings.Load();
@@ -80,7 +87,7 @@ namespace TelegramAutomation.ViewModels
             {
                 _logger.Error(ex, "初始化失败");
                 Status = "初始化失败: " + ex.Message;
-                StatusColor = Brushes.Red;
+                StatusColor = System.Windows.Media.Brushes.Red;
                 throw;
             }
         }
@@ -126,10 +133,25 @@ namespace TelegramAutomation.ViewModels
 
         private void UpdateLoginStatus(bool isLoggedIn)
         {
-            LoginStatusMessage = isLoggedIn ? "已登录" : "未登录";
-            LoginStatusColor = isLoggedIn ? 
-                System.Windows.Media.Brushes.Green : 
-                System.Windows.Media.Brushes.Red;
+            try
+            {
+                LoginStatusMessage = isLoggedIn ? "已登录" : "未登录";
+                LoginStatusColor = isLoggedIn ? 
+                    System.Windows.Media.Brushes.Green : 
+                    System.Windows.Media.Brushes.Red;
+                
+                // 更新整体状态
+                Status = isLoggedIn ? "登录成功" : "未登录";
+                StatusColor = isLoggedIn ? 
+                    System.Windows.Media.Brushes.Green : 
+                    System.Windows.Media.Brushes.Red;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "更新登录状态失败");
+                LoginStatusMessage = "状态更新失败";
+                LoginStatusColor = System.Windows.Media.Brushes.Gray;
+            }
         }
     }
 }
