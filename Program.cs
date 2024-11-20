@@ -42,7 +42,6 @@ namespace TelegramAutomation
                 }
 
                 var app = new App();
-                app.InitializeComponent();
                 app.Run();
             }
             catch (Exception ex)

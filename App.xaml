@@ -4,6 +4,9 @@
              xmlns:local="clr-namespace:TelegramAutomation"
              xmlns:viewModels="clr-namespace:TelegramAutomation.ViewModels">
     <Application.Resources>
-        <viewModels:MainViewModel x:Key="MainViewModel"/>
+        <ResourceDictionary>
+            <viewModels:MainViewModel x:Key="MainViewModel"/>
+            <!-- 添加其他全局资源 -->
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

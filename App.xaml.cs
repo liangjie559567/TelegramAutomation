@@ -3,21 +3,15 @@ using TelegramAutomation.Views;
 
 namespace TelegramAutomation
 {
-    public partial class App : System.Windows.Application
+    public partial class App : Application
     {
-        public App()
+        protected override void OnStartup(StartupEventArgs e)
         {
-            InitializeComponent();
+            base.OnStartup(e);
             
             // 初始化主窗口
             MainWindow = new MainWindow();
             MainWindow.Show();
-        }
-
-        protected override void OnStartup(StartupEventArgs e)
-        {
-            base.OnStartup(e);
-            // 其他启动代码
         }
     }
 }
