@@ -5,7 +5,7 @@ namespace TelegramAutomation.Exceptions
     public class LoginException : Exception
     {
         public string ErrorCode { get; }
-        public string AdditionalInfo { get; }
+        public string? AdditionalInfo { get; }
 
         public LoginException() : base() { }
         
@@ -14,7 +14,7 @@ namespace TelegramAutomation.Exceptions
         public LoginException(string message, Exception innerException) 
             : base(message, innerException) { }
 
-        public LoginException(string message, string errorCode, string additionalInfo = null) 
+        public LoginException(string message, string errorCode, string? additionalInfo = null) 
             : base(message)
         {
             ErrorCode = errorCode;

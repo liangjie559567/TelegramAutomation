@@ -63,7 +63,8 @@ namespace TelegramAutomation
         public AutomationController(AppSettings settings)
         {
             _appSettings = settings;
-            _keyboard = new InputSimulator().Keyboard;
+            var inputSimulator = new InputSimulator();
+            _keyboard = inputSimulator.Keyboard;
             _config = LoadConfiguration();
             _driver = InitializeWebDriver();
             _wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(_config.WaitTimeout));
@@ -612,7 +613,7 @@ namespace TelegramAutomation
             }, $"等待元素 {elementName}");
         }
 
-        // 修改登录方法，添加更多等��和重试
+        // 修改登录方法，添加更多等和重试
         public async Task<bool> Login(string phoneNumber, string verificationCode)
         {
             try
