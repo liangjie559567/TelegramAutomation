@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
-    <Version>1.8.56</Version>
+    <Version>1.8.57</Version>
     <StartupObject>TelegramAutomation.Program</StartupObject>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <PublishSingleFile>true</PublishSingleFile>
@@ -14,7 +14,6 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>embedded</DebugType>
-    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -47,9 +46,5 @@
     <None Update="nlog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Resource Include="Assets\app.ico" />
   </ItemGroup>
 </Project> 
