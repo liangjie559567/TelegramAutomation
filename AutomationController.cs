@@ -57,14 +57,13 @@ namespace TelegramAutomation
         private const int DEFAULT_TIMEOUT = 30; // 默认超时时间（秒）
         private const int ELEMENT_TIMEOUT = 10; // 元素等待超时时间（秒）
 
-        private readonly IKeyboardSimulator _keyboard;
+        private readonly IInputSimulator _inputSimulator;
         private readonly AppSettings _appSettings;
 
         public AutomationController(AppSettings settings)
         {
             _appSettings = settings;
-            var inputSimulator = new InputSimulator();
-            _keyboard = inputSimulator.Keyboard;
+            _inputSimulator = new InputSimulator();
             _config = LoadConfiguration();
             _driver = InitializeWebDriver();
             _wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(_config.WaitTimeout));
@@ -296,9 +295,36 @@ namespace TelegramAutomation
             }
         }
 
-        private void SimulateKeyPress(string key)
+        private async Task SimulateKeyPress(string text)
         {
-            _keyboard.TextEntry(key);
+            try
+            {
+                await Task.Run(() => {
+                    _inputSimulator.Keyboard.TextEntry(text);
+                    Thread.Sleep(100); // 添加短暂延迟模拟人工输入
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "模拟按键失败");
+                throw;
+            }
+        }
+
+        private async Task PressEnter()
+        {
+            try
+            {
+                await Task.Run(() => {
+                    _inputSimulator.Keyboard.KeyPress(VirtualKeyCode.RETURN);
+                    Thread.Sleep(50);
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "按回车键失败");
+                throw;
+            }
         }
 
         private async Task<T> RetryOperation<T>(Func<Task<T>> operation, int maxRetries = 3)
@@ -770,7 +796,7 @@ namespace TelegramAutomation
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "清理会话失败");
+                _logger.Error(ex, "清理会话失��");
                 throw;
             }
         }
@@ -846,7 +872,7 @@ namespace TelegramAutomation
 
                     try
                     {
-                        // 处理每条消息
+                        // 处理每条消��
                         await ProcessMessage(message, savePath, progress);
                         progress.Report($"处理进度: {current}/{total}");
                     }
@@ -927,8 +953,8 @@ namespace TelegramAutomation
                     // 等待页面加载
                     Thread.Sleep(1000);
                     // 模拟按下 Tab 和 Enter 键来清理数据
-                    _keyboard.KeyPress(VirtualKeyCode.TAB);
-                    _keyboard.KeyPress(VirtualKeyCode.RETURN);
+                    _inputSimulator.Keyboard.KeyPress(VirtualKeyCode.TAB);
+                    _inputSimulator.Keyboard.KeyPress(VirtualKeyCode.RETURN);
                 });
             }
             catch (Exception ex)
