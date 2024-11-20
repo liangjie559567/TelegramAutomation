@@ -9,6 +9,7 @@ using WebDriverManager.DriverConfigs.Impl;
 using WebDriverManager.Helpers;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
+using System.Net.Http;
 
 namespace TelegramAutomation.Services
 {
@@ -35,10 +36,13 @@ namespace TelegramAutomation.Services
                     throw new ChromeException("未找到 Chrome 浏览器", "CHROME_NOT_FOUND");
                 }
 
-                var version = GetChromeVersion(chromePath);
+                var version = GetChromeVersion();
                 if (CompareVersions(version, MINIMUM_CHROME_VERSION) < 0)
                 {
-                    throw new ChromeException($"Chrome 版本过低，需要 {MINIMUM_CHROME_VERSION} 或更高版本", "CHROME_VERSION_MISMATCH");
+                    throw new ChromeException(
+                        $"Chrome 版本过低，需要 {MINIMUM_CHROME_VERSION} 或更高版本",
+                        "CHROME_VERSION_LOW"
+                    );
                 }
 
                 return true;
@@ -46,7 +50,7 @@ namespace TelegramAutomation.Services
             catch (Exception ex)
             {
                 _logger.Error(ex, "Chrome 环境验证失败");
-                return false;
+                throw;
             }
         }
 
@@ -138,83 +142,69 @@ namespace TelegramAutomation.Services
 
         public async Task<string> GetChromeVersionAsync()
         {
-            return await Task.Run(() => GetChromeVersion());
-        }
-
-        public string GetChromeVersion()
-        {
-            // 实现版本获取逻辑
-            return "131.0.6778.86";
-        }
-
-        public async Task<bool> VerifyVersionAsync()
-        {
-            var version = await GetChromeVersionAsync();
-            return CompareVersions(version, "100.0.0.0") >= 0;
-        }
-
-        private async Task<string> GetLatestChromeDriverVersion()
-        {
             try
             {
-                var config = new ChromeConfig();
-                return await config.GetMatchingBrowserVersion();
+                return await Task.Run(() => {
+                    var chromePath = GetChromePath();
+                    var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
+                    return versionInfo.FileVersion ?? string.Empty;
+                });
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "获取最新 ChromeDriver 版本失败");
-                throw new ChromeException("获取 ChromeDriver 版本失败", "DRIVER_VERSION_ERROR", ex);
+                _logger.Error(ex, "获取Chrome版本失败");
+                throw new ChromeException("无法获取Chrome版本", ex);
             }
         }
 
-        private async Task<bool> ValidateDriverVersion(string driverPath, string expectedVersion)
+        public async Task InitializeAsync()
         {
             try
             {
-                var driverService = ChromeDriverService.CreateDefaultService(Path.GetDirectoryName(driverPath));
-                driverService.HideCommandPromptWindow = true;
-
-                using var driver = new ChromeDriver(driverService);
-                var currentVersion = driver.Capabilities.GetCapability("chrome").ToString();
-                
-                driver.Quit();
-                
-                return currentVersion?.StartsWith(expectedVersion) ?? false;
+                var chromeVersion = await GetChromeVersionAsync();
+                var driverVersion = await GetDriverVersionAsync(chromeVersion);
+                await SetupChromeDriverAsync(driverVersion);
             }
             catch (Exception ex)
             {
-                _logger.Warn(ex, "驱动版本验证失败");
-                return false;
+                _logger.Error(ex, "ChromeService初始化失败");
+                throw;
             }
         }
 
-        private async Task CleanupOldDrivers(string driverPath)
+        private async Task<string> GetDriverVersionAsync(string chromeVersion)
         {
             try
             {
-                var directory = Path.GetDirectoryName(driverPath);
-                if (directory == null) return;
-
-                var files = Directory.GetFiles(directory, "chromedriver*.*");
-                foreach (var file in files)
-                {
-                    try
-                    {
-                        if (file != driverPath)
-                        {
-                            File.Delete(file);
-                            _logger.Info($"清理旧版本驱动: {file}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warn(ex, $"清理旧驱动失败: {file}");
-                    }
-                }
+                using var client = new HttpClient();
+                var response = await client.GetStringAsync(
+                    $"https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{chromeVersion.Split('.')[0]}");
+                return await Task.FromResult(response.Trim());
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "清理旧驱动文件失败");
+                _logger.Error(ex, "获取ChromeDriver版本失败");
+                throw new ChromeDriverException("无法获取ChromeDriver版本", ex);
+            }
+        }
+
+        private async Task SetupChromeDriverAsync(string version)
+        {
+            try
+            {
+                await Task.Run(() => {
+                    var manager = new DriverManager();
+                    manager.SetUpDriver(
+                        new ChromeConfig(),
+                        version,
+                        Architecture.X64
+                    );
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "设置ChromeDriver失败");
+                throw;
             }
         }
 

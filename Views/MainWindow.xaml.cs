@@ -19,17 +19,16 @@ namespace TelegramAutomation.Views
         {
             InitializeComponent();
             _viewModel = (MainViewModel)DataContext;
-            
-            // 移除直接的控件引用，改用 XAML 绑定
-            DataContext = new MainViewModel();
         }
 
-        // 使用命令绑定替代直接的事件处理
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
-                await _viewModel.Initialize();
+                if (_viewModel != null)
+                {
+                    await _viewModel.InitializeAsync();
+                }
             }
             catch (Exception ex)
             {
