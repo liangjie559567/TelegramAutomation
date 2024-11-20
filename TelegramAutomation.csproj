@@ -5,8 +5,8 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Version>1.8.55</Version>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Version>1.8.56</Version>
     <StartupObject>TelegramAutomation.Program</StartupObject>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <PublishSingleFile>true</PublishSingleFile>

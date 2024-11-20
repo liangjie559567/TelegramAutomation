@@ -1,7 +1,5 @@
 using System;
 using System.Windows;
-using System.Windows.Forms;
-using MessageBox = System.Windows.MessageBox;
 using System.Threading;
 using System.Collections.ObjectModel;
 using TelegramAutomation.Models;
@@ -33,7 +31,12 @@ namespace TelegramAutomation.Views
             catch (Exception ex)
             {
                 _logger.Error(ex, "窗口加载失败");
-                MessageBox.Show("初始化失败: " + ex.Message);
+                MessageBox.Show(
+                    "初始化失败: " + ex.Message,
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
             }
         }
     }
