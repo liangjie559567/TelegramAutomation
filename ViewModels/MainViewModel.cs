@@ -26,6 +26,41 @@ namespace TelegramAutomation.ViewModels
         private readonly AppSettings _settings;
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
 
+        private string _status = string.Empty;
+        public string Status
+        {
+            get => _status;
+            set => SetProperty(ref _status, value);
+        }
+
+        private string _networkStatusText = "检查网络...";
+        public string NetworkStatusText
+        {
+            get => _networkStatusText;
+            set => SetProperty(ref _networkStatusText, value);
+        }
+
+        private System.Windows.Media.Brush _networkStatusColor = System.Windows.Media.Brushes.Gray;
+        public System.Windows.Media.Brush NetworkStatusColor
+        {
+            get => _networkStatusColor;
+            set => SetProperty(ref _networkStatusColor, value);
+        }
+
+        private string _loginStatusMessage = string.Empty;
+        public string LoginStatusMessage
+        {
+            get => _loginStatusMessage;
+            set => SetProperty(ref _loginStatusMessage, value);
+        }
+
+        private System.Windows.Media.Brush _loginStatusColor = System.Windows.Media.Brushes.Gray;
+        public System.Windows.Media.Brush LoginStatusColor
+        {
+            get => _loginStatusColor;
+            set => SetProperty(ref _loginStatusColor, value);
+        }
+
         public MainViewModel()
         {
             _settings = AppSettings.Load();
@@ -69,6 +104,32 @@ namespace TelegramAutomation.ViewModels
                 LoginStatusColor = Brushes.Red;
                 throw;
             }
+        }
+
+        private void UpdateNetworkStatus()
+        {
+            try
+            {
+                var isConnected = System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable();
+                NetworkStatusText = isConnected ? "网络正常" : "网络异常";
+                NetworkStatusColor = isConnected ? 
+                    System.Windows.Media.Brushes.Green : 
+                    System.Windows.Media.Brushes.Red;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "更新网络状态失败");
+                NetworkStatusText = "网络状态未知";
+                NetworkStatusColor = System.Windows.Media.Brushes.Gray;
+            }
+        }
+
+        private void UpdateLoginStatus(bool isLoggedIn)
+        {
+            LoginStatusMessage = isLoggedIn ? "已登录" : "未登录";
+            LoginStatusColor = isLoggedIn ? 
+                System.Windows.Media.Brushes.Green : 
+                System.Windows.Media.Brushes.Red;
         }
     }
 }

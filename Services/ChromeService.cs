@@ -219,5 +219,53 @@ namespace TelegramAutomation.Services
             // 实现版本比较逻辑
             return Version.Parse(v1).CompareTo(Version.Parse(v2));
         }
+
+        private string GetChromeVersion()
+        {
+            try
+            {
+                var chromePath = DetectChromePath();
+                var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
+                return versionInfo.FileVersion ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "获取Chrome版本失败");
+                throw new ChromeException("无法获取Chrome版本", "VERSION_ERROR", ex.Message);
+            }
+        }
+
+        private string GetChromePath()
+        {
+            var possiblePaths = new[]
+            {
+                @"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+            }.Concat(_searchPaths);
+
+            foreach (var path in possiblePaths)
+            {
+                if (File.Exists(path))
+                {
+                    return path;
+                }
+            }
+            throw new ChromeException("未找到Chrome浏览器", "CHROME_NOT_FOUND");
+        }
+
+        public async Task<bool> CheckLoginStatusAsync()
+        {
+            try
+            {
+                // 实现登录状态检查逻辑
+                await Task.Delay(100); // 模拟异步操作
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "检查登录状态失败");
+                throw new LoginException("检查登录状态失败", ex.Message);
+            }
+        }
     }
 } 

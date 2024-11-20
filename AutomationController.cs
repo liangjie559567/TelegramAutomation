@@ -48,7 +48,18 @@ namespace TelegramAutomation
         public async Task StartAutomation(string channelUrl, string savePath, 
             IProgress<string> progress, CancellationToken token)
         {
-            // 实现自动化逻辑
+            try
+            {
+                await Task.Run(async () => {
+                    // 实现自动化逻辑
+                    await Task.Delay(100, token);
+                }, token);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "自动化执行失败");
+                throw;
+            }
         }
 
         public async Task RequestVerificationCode(string phoneNumber)
@@ -73,14 +84,36 @@ namespace TelegramAutomation
 
         public async Task<bool> LoginWithRetry(string code)
         {
-            // 实现登录逻辑
-            return true;
+            try
+            {
+                return await Task.Run(async () => {
+                    // 实现登录逻辑
+                    await Task.Delay(100);
+                    return true;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "登录失败");
+                throw;
+            }
         }
 
         public async Task<bool> VerifyLoginStatusComprehensive()
         {
-            // 实现验证逻辑
-            return true;
+            try
+            {
+                return await Task.Run(async () => {
+                    // 实现验证逻辑
+                    await Task.Delay(100);
+                    return true;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "验证登录状态失败");
+                throw;
+            }
         }
 
         public async Task ClearSession()
