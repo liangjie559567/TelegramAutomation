@@ -37,12 +37,14 @@ namespace TelegramAutomation.Models
 
     public class ChromeDriverConfig
     {
-        public string Version { get; set; } = "132.0.6834.600-beta";
-        public string[] SearchPaths { get; set; } = new[]
+        public bool Headless { get; set; } = false;
+        public string[] SearchPaths { get; set; } = Array.Empty<string>();
+        public Dictionary<string, string> Options { get; set; } = new()
         {
-            "chromedriver.exe",
-            @".\chromedriver.exe",
-            @"..\chromedriver.exe"
+            { "disable-gpu", "" },
+            { "no-sandbox", "" },
+            { "disable-dev-shm-usage", "" },
+            { "disable-extensions", "" }
         };
     }
 } 

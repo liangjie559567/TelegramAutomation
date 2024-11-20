@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>1.8.27</Version>
+    <Version>1.8.28</Version>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
   </PropertyGroup>
 
@@ -15,8 +15,8 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
     <PackageReference Include="NLog" Version="5.2.8" />
     <PackageReference Include="Selenium.WebDriver" Version="4.18.1" />
-    <PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="122.0.6261.5700" />
     <PackageReference Include="WindowsInput" Version="6.4.1" />
+    <PackageReference Include="WebDriverManager" Version="2.17.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,37 +38,4 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
-  <Target Name="CopyChromeDriver" AfterTargets="Build">
-    <PropertyGroup>
-      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\$(ChromeDriverVersion)\driver\win32\chromedriver.exe</ChromeDriverPath>
-      <ChromeDriverTargetPath>$(OutputPath)chromedriver.exe</ChromeDriverTargetPath>
-    </PropertyGroup>
-    
-    <Message Text="正在复制 ChromeDriver..." Importance="high" />
-    <Message Text="源路径: $(ChromeDriverPath)" Importance="high" />
-    <Message Text="目标路径: $(ChromeDriverTargetPath)" Importance="high" />
-    
-    <Copy 
-      SourceFiles="$(ChromeDriverPath)" 
-      DestinationFiles="$(ChromeDriverTargetPath)" 
-      SkipUnchangedFiles="true" 
-      ContinueOnError="true"
-    />
-  </Target>
-
-  <Target Name="CopyChromeDriverOnPublish" AfterTargets="Publish">
-    <PropertyGroup>
-      <ChromeDriverPath>$(NuGetPackageRoot)selenium.webdriver.chromedriver\$(ChromeDriverVersion)\driver\win32\chromedriver.exe</ChromeDriverPath>
-      <ChromeDriverPublishPath>$(PublishDir)chromedriver.exe</ChromeDriverPublishPath>
-    </PropertyGroup>
-    
-    <Message Text="正在复制 ChromeDriver 到发布目录..." Importance="high" />
-    <Copy 
-      SourceFiles="$(ChromeDriverPath)" 
-      DestinationFiles="$(ChromeDriverPublishPath)" 
-      SkipUnchangedFiles="true" 
-      ContinueOnError="true"
-    />
-  </Target>
 </Project> 

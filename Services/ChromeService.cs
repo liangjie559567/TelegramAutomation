@@ -4,6 +4,11 @@ using System.Linq;
 using System.Diagnostics;
 using NLog;
 using TelegramAutomation.Models;
+using WebDriverManager;
+using WebDriverManager.DriverConfigs.Impl;
+using WebDriverManager.Helpers;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
 
 namespace TelegramAutomation.Services
 {
@@ -12,10 +17,12 @@ namespace TelegramAutomation.Services
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
         private readonly string[] _searchPaths;
         private const string MINIMUM_CHROME_VERSION = "131.0.6778.86";
+        private readonly AppSettings _settings;
 
         public ChromeService(AppSettings settings)
         {
-            _searchPaths = settings.SearchPaths;
+            _settings = settings;
+            _searchPaths = settings.ChromeDriver.SearchPaths;
         }
 
         public async Task<bool> ValidateChromeEnvironment()
@@ -26,15 +33,21 @@ namespace TelegramAutomation.Services
                 var chromePath = await DetectChromePath();
                 if (string.IsNullOrEmpty(chromePath))
                 {
-                    throw new Exception("CHROME_NOT_FOUND");
+                    throw new ChromeException("未找到 Chrome 浏览器", "CHROME_NOT_FOUND");
                 }
 
                 // 检查 Chrome 版本
                 var version = GetChromeVersion(chromePath);
                 if (CompareVersions(version, MINIMUM_CHROME_VERSION) < 0)
                 {
-                    throw new Exception($"CHROME_VERSION_MISMATCH: 当前版本 {version}, 需要 {MINIMUM_CHROME_VERSION} 或更高版本");
+                    throw new ChromeException(
+                        $"Chrome 版本不匹配: 当前版本 {version}, 需要 {MINIMUM_CHROME_VERSION} 或更高版本",
+                        "CHROME_VERSION_MISMATCH"
+                    );
                 }
+
+                // 自动管理 ChromeDriver
+                await SetupChromeDriver(version);
 
                 return true;
             }
@@ -42,6 +55,85 @@ namespace TelegramAutomation.Services
             {
                 _logger.Error(ex, "Chrome 环境验证失败");
                 throw;
+            }
+        }
+
+        private async Task SetupChromeDriver(string chromeVersion)
+        {
+            try
+            {
+                _logger.Info($"正在设置 ChromeDriver，Chrome 版本: {chromeVersion}");
+
+                var manager = new DriverManager();
+                var config = new ChromeConfig();
+                
+                // 设置下载路径
+                var driverPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    "WebDriver"
+                );
+
+                // 自动下载匹配的 ChromeDriver
+                await Task.Run(() => manager
+                    .SetUpDriver(
+                        config,
+                        version: chromeVersion,
+                        architecture: Architecture.Auto,
+                        downloadPath: driverPath
+                    ));
+
+                _logger.Info($"ChromeDriver 设置完成，路径: {driverPath}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "设置 ChromeDriver 失败");
+                throw new ChromeException(
+                    "ChromeDriver 设置失败",
+                    "CHROMEDRIVER_SETUP_FAILED",
+                    ex
+                );
+            }
+        }
+
+        public IWebDriver InitializeDriver()
+        {
+            try
+            {
+                var options = new ChromeOptions();
+                
+                // 添加 Chrome 选项
+                options.AddArgument("--disable-gpu");
+                options.AddArgument("--no-sandbox");
+                options.AddArgument("--disable-dev-shm-usage");
+                options.AddArgument("--disable-extensions");
+                
+                if (_settings.ChromeDriver.Headless)
+                {
+                    options.AddArgument("--headless");
+                }
+
+                // 设置下载首选项
+                options.AddUserProfilePreference("download.default_directory", _settings.DefaultSavePath);
+                options.AddUserProfilePreference("download.prompt_for_download", false);
+                options.AddUserProfilePreference("download.directory_upgrade", true);
+
+                var service = ChromeDriverService.CreateDefaultService();
+                service.HideCommandPromptWindow = true;
+
+                _logger.Info("正在初始化 ChromeDriver");
+                var driver = new ChromeDriver(service, options);
+                _logger.Info("ChromeDriver 初始化成功");
+
+                return driver;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "初始化 ChromeDriver 失败");
+                throw new ChromeException(
+                    "初始化 ChromeDriver 失败",
+                    "CHROMEDRIVER_INIT_FAILED",
+                    ex
+                );
             }
         }
 
@@ -101,6 +193,71 @@ namespace TelegramAutomation.Services
             {
                 _logger.Error(ex, "获取 Chrome 版本失败");
                 return null;
+            }
+        }
+
+        private async Task<string> GetLatestChromeDriverVersion()
+        {
+            try
+            {
+                var config = new ChromeConfig();
+                return await config.GetMatchingBrowserVersion();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "获取最新 ChromeDriver 版本失败");
+                throw new ChromeException("获取 ChromeDriver 版本失败", "DRIVER_VERSION_ERROR", ex);
+            }
+        }
+
+        private async Task<bool> ValidateDriverVersion(string driverPath, string expectedVersion)
+        {
+            try
+            {
+                var driverService = ChromeDriverService.CreateDefaultService(Path.GetDirectoryName(driverPath));
+                driverService.HideCommandPromptWindow = true;
+
+                using var driver = new ChromeDriver(driverService);
+                var currentVersion = driver.Capabilities.GetCapability("chrome").ToString();
+                
+                driver.Quit();
+                
+                return currentVersion?.StartsWith(expectedVersion) ?? false;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "驱动版本验证失败");
+                return false;
+            }
+        }
+
+        private async Task CleanupOldDrivers(string driverPath)
+        {
+            try
+            {
+                var directory = Path.GetDirectoryName(driverPath);
+                if (directory == null) return;
+
+                var files = Directory.GetFiles(directory, "chromedriver*.*");
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        if (file != driverPath)
+                        {
+                            File.Delete(file);
+                            _logger.Info($"清理旧版本驱动: {file}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn(ex, $"清理旧驱动失败: {file}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "清理旧驱动文件失败");
             }
         }
     }
