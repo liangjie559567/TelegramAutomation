@@ -18,13 +18,28 @@ namespace TelegramAutomation.Models
         
         public static AppSettings Load()
         {
-            var configPath = "appsettings.json";
-            if (File.Exists(configPath))
+            try
             {
-                var json = File.ReadAllText(configPath);
-                return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                var configPath = "appsettings.json";
+                if (!File.Exists(configPath))
+                {
+                    throw new FileNotFoundException("配置文件不存在", configPath);
+                }
+
+                var jsonString = File.ReadAllText(configPath);
+                var settings = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(jsonString);
+                
+                if (settings == null)
+                {
+                    throw new InvalidOperationException("配置文件格式错误");
+                }
+
+                return settings;
             }
-            return new AppSettings();
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("加载配置文件失败", ex);
+            }
         }
 
         public void Save()

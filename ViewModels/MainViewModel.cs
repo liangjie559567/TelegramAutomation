@@ -69,9 +69,36 @@ namespace TelegramAutomation.ViewModels
 
         public MainViewModel()
         {
-            _settings = AppSettings.Load();
-            _chromeService = new ChromeService(_settings);
-            InitializeCommands();
+            try 
+            {
+                // 先加载配置
+                _settings = AppSettings.Load();
+                if (_settings == null)
+                {
+                    throw new InvalidOperationException("无法加载应用程序配置");
+                }
+
+                // 初始化服务
+                _chromeService = new ChromeService(_settings);
+                
+                // 初始化命令
+                InitializeCommands();
+
+                // 设置初始状态
+                Status = "正在初始化...";
+                StatusColor = System.Windows.Media.Brushes.Gray;
+                NetworkStatusText = "检查网络...";
+                NetworkStatusColor = System.Windows.Media.Brushes.Gray;
+                LoginStatusMessage = "未登录";
+                LoginStatusColor = System.Windows.Media.Brushes.Gray;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "MainViewModel 初始化失败");
+                Status = "初始化失败: " + ex.Message;
+                StatusColor = System.Windows.Media.Brushes.Red;
+                throw;
+            }
         }
 
         public async Task InitializeAsync()
