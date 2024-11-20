@@ -6,8 +6,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
-    <Version>1.8.60</Version>
+    <Version>1.8.61</Version>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
   </PropertyGroup>
 
   <ItemGroup>
@@ -43,5 +44,9 @@
     <None Update="nlog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\icon.ico" />
   </ItemGroup>
 </Project> 
