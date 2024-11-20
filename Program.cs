@@ -7,16 +7,10 @@ namespace TelegramAutomation
     public static class Program
     {
         [STAThread]
-        public static void Main()
+        public static void Main(string[] args)
         {
             try
             {
-                LogManager.Setup()
-                    .LoadConfigurationFromFile("nlog.config");
-                
-                var logger = LogManager.GetCurrentClassLogger();
-                logger.Info("应用程序启动");
-
                 var app = new App();
                 app.InitializeComponent();
                 app.Run();

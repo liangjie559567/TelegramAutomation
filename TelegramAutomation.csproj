@@ -6,7 +6,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>1.8.43</Version>
+    <Version>1.8.44</Version>
+    <StartupObject>TelegramAutomation.Program</StartupObject>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
   </PropertyGroup>
 
@@ -17,7 +18,7 @@
     <PackageReference Include="NLog" Version="5.2.8" />
     <PackageReference Include="Selenium.WebDriver" Version="4.18.1" />
     <PackageReference Include="WebDriverManager" Version="2.17.1" />
-    <PackageReference Include="System.Text.Json" Version="8.0.1" />
+    <PackageReference Include="System.Text.Json" Version="8.0.2" />
     <PackageReference Include="InputSimulatorStandard" Version="1.0.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
   </ItemGroup>

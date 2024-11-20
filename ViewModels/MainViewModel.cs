@@ -22,36 +22,24 @@ namespace TelegramAutomation.ViewModels
 {
     public class MainViewModel : ViewModelBase
     {
-        private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
-        private readonly AppSettings _settings;
         private readonly ChromeService _chromeService;
-        private readonly AutomationController _controller;
+        private readonly AppSettings _settings;
 
         public MainViewModel()
         {
             _settings = AppSettings.Load();
-            _chromeService = new ChromeService();
-            _controller = new AutomationController(_settings, _chromeService);
+            _chromeService = new ChromeService(_settings);
             InitializeCommands();
         }
 
-        public async Task Initialize()
+        private void InitializeCommands()
         {
-            try
-            {
-                await _controller.InitializeAsync();
-                await CheckLoginStatus();
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "初始化失败");
-                throw;
-            }
+            // 实现命令初始化
         }
 
-        private async Task ExecuteCommand()
+        private async Task CheckLoginStatus()
         {
-            // 实现命令执行逻辑
+            // 实现登录状态检查
         }
     }
 }

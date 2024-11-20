@@ -141,7 +141,7 @@ namespace TelegramAutomation.Services
             return await Task.Run(() => GetChromeVersion());
         }
 
-        private string GetChromeVersion()
+        public string GetChromeVersion()
         {
             // 实现版本获取逻辑
             return "131.0.6778.86";
