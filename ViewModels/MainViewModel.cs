@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.IO;
 using System.Threading.Tasks;
+using System.Linq;
 using TelegramAutomation.Commands;
 using System.Windows.Forms;
 using OpenQA.Selenium;
@@ -368,7 +369,7 @@ namespace TelegramAutomation.ViewModels
         private string FormatPhoneNumber(string phone)
         {
             // 移除所有非数字字符
-            var numbers = new string(phone.Where(char.IsDigit).ToArray());
+            var numbers = new string(phone.Where(c => char.IsDigit(c)).ToArray());
             
             // 如果没有国际区号，默认添加+86
             if (!phone.StartsWith("+"))
@@ -424,11 +425,11 @@ namespace TelegramAutomation.ViewModels
                 StatusColor = System.Windows.Media.Brushes.Green;
 
                 // 自动聚焦到验证码输入框
-                Application.Current.Dispatcher.BeginInvoke(() =>
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(() =>
                 {
-                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
                     {
-                        var verificationCodeBox = mainWindow.FindName("VerificationCodeBox") as TextBox;
+                        var verificationCodeBox = mainWindow.FindName("VerificationCodeBox") as System.Windows.Controls.TextBox;
                         verificationCodeBox?.Focus();
                     }
                 });
