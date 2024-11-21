@@ -10,15 +10,13 @@ namespace TelegramAutomation
     public static class Program
     {
         [STAThread]
-        public static void Main(string[] args)
+        public static void Main()
         {
             try
             {
-                // 初始化日志系统
                 var logger = LogManager.GetCurrentClassLogger();
                 logger.Info("应用程序启动");
 
-                // 确保必要的配置文件存在
                 if (!System.IO.File.Exists("appsettings.json"))
                 {
                     MessageBox.Show(
