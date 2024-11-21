@@ -1,38 +1,21 @@
 # Telegram 自动化下载工具
 
-## 最新更新 (v1.8.72)
+## 最新更新 (v1.9.10)
 - 🔧 修复问题
-  - 修复 ChromeService 异常处理
-  - 完善错误代码使用
-  - 优化异常信息传递
-  - 加强错误追踪能力
+  - 添加缺失的 InverseBoolConverter
+  - 完善 XAML 资源定义
+  - 优化转换器实现
+  - 加强界面稳定性
 - ⚡️ 性能优化
-  - 改进异常捕获机制
-  - 优化日志记录方式
-  - 完善资源释放
+  - 改进资源管理
+  - 优化界面响应
+  - 完善数据绑定
   - 加强代码健壮性
 - 🛠️ 代码重构
-  - 规范化异常处理
-  - 完善错误代码定义
-  - 优化服务实现
-  - 改进代码结构
-
-## 上一版本 (v1.8.71)
-- 🔧 优化功能
-  - 改进 Chrome 服务实现
-  - 优化下载管理机制
-  - 完善异常处理流程
-  - 加强资源管理
-- ⚡️ 性能提升
-  - 改进并发下载控制
-  - 优化内存使用
-  - 完善资源释放
-  - 加强稳定性
-- 🛠️ 代码优化
-  - 规范化服务实现
-  - 完善异步操作
-  - 优化代码结构
-  - 改进错误处理
+  - 规范化转换器实现
+  - 完善资源组织
+  - 优化 XAML 结构
+  - 改进代码组织
 
 ## 程序目录结构
 
@@ -48,37 +31,39 @@
 3. **Constants/**
    - `ErrorCodes.cs`: 错误代码常量定义
 
-4. **Exceptions/**
+4. **Converters/**
+   - `InverseBoolConverter.cs`: 布尔值反转转换器
+
+5. **Exceptions/**
    - `TelegramAutomationException.cs`: 基础异常类
    - `ChromeException.cs`: Chrome相关异常基类
    - `ChromeDriverException.cs`: ChromeDriver相关异常
    - `LoginException.cs`: 登录相关异常处理类
 
-5. **Helpers/**
+6. **Helpers/**
    - `LogHelper.cs`: 日志辅助工具
 
-6. **Models/**
+7. **Models/**
    - `AppSettings.cs`: 应用配置模型
    - `DownloadConfiguration.cs`: 下载配置
    - `DownloadItem.cs`: 下载项模型
    - `SessionData.cs`: 会话数据模型
 
-7. **Services/**
+8. **Services/**
    - `ChromeService.cs`: Chrome浏览器服务
    - `DownloadManager.cs`: 下载管理服务
    - `MessageProcessor.cs`: 消息处理服务
 
-8. **ViewModels/**
+9. **ViewModels/**
    - `ViewModelBase.cs`: MVVM基类
    - `MainViewModel.cs`: 主窗口视图模型
 
-9. **Views/**
-   - `MainWindow.xaml`: 主窗口界面
-   - `MainWindow.xaml.cs`: 主窗口代码
+10. **Views/**
+    - `MainWindow.xaml`: 主窗口界面
+    - `MainWindow.xaml.cs`: 主窗口代码
 
-10. **docs/**
-    - `CONTRIBUTING.md`: 贡献指南
-    - `FAQ.md`: 常见问题
+11. **Themes/**
+    - `Default.xaml`: 默认主题样式
 
 ### 配置文件
 - `App.xaml`: WPF应用程序定义
@@ -93,6 +78,19 @@
 - `LICENSE`: 开源许可证
 - `TelegramAutomation.csproj`: 项目文件
 - `.gitignore`: Git忽略规则
+
+### 数据转换器说明
+
+#### InverseBoolConverter
+- 用途：将布尔值进行反转转换
+- 场景：在 XAML 绑定中需要对布尔值取反的情况
+- 示例：控件的启用/禁用状态与某个布尔属性相反
+
+### 主题资源
+- 默认主题文件：`Themes/Default.xaml`
+- 全局资源定义：`App.xaml`
+- 支持的转换器：
+  - InverseBoolConverter
 
 ### 输出目录
 - `bin/`

@@ -27,6 +27,7 @@ namespace TelegramAutomation.ViewModels
         private readonly ChromeService? _chromeService;
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
         private readonly CancellationTokenSource _cts = new();
+        private bool _disposed;
         
         public MainViewModel()
         {
@@ -38,14 +39,9 @@ namespace TelegramAutomation.ViewModels
                     _chromeService = new ChromeService(settings);
                     
                     // 初始化所有命令
-                    LoginCommand = new RelayCommand(async _ => await ExecuteLoginCommand());
-                    StopCommand = new RelayCommand(_ => 
-                    {
-                        _cts.Cancel();
-                        Status = "操作已取消";
-                        StatusColor = System.Windows.Media.Brushes.Orange;
-                    });
-                    RetryCommand = new RelayCommand(async _ => await InitializeAsync());
+                    LoginCommand = new RelayCommand(async _ => await ExecuteLoginCommandAsync());
+                    StopCommand = new RelayCommand(_ => ExecuteStopCommand());
+                    RetryCommand = new RelayCommand(async _ => await ExecuteRetryCommandAsync());
                 }
                 else
                 {
@@ -57,15 +53,7 @@ namespace TelegramAutomation.ViewModels
             }
             catch (Exception ex)
             {
-                _logger.LogException(ex, "MainViewModel 初始化失败");
-                Status = "初始化失败: " + ex.Message;
-                StatusColor = System.Windows.Media.Brushes.Red;
-                MessageBox.Show(
-                    ex.Message,
-                    "初始化错误",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
+                HandleInitializationError(ex);
             }
         }
 
@@ -124,8 +112,42 @@ namespace TelegramAutomation.ViewModels
             }
         }
 
-        private async Task ExecuteLoginCommand()
+        private void ExecuteStopCommand()
         {
+            try
+            {
+                _cts.Cancel();
+                Status = "操作已取消";
+                StatusColor = System.Windows.Media.Brushes.Orange;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogException(ex, "停止操作失败");
+            }
+        }
+
+        private async Task ExecuteRetryCommandAsync()
+        {
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+                cts.CancelAfter(TimeSpan.FromMinutes(1));
+                await InitializeAsync();
+            }
+            catch (Exception ex)
+            {
+                HandleInitializationError(ex);
+            }
+        }
+
+        private async Task ExecuteLoginCommandAsync()
+        {
+            if (_disposed)
+            {
+                _logger.Warn("尝试在已释放的实例上执行登录");
+                return;
+            }
+
             try
             {
                 if (_chromeService == null)
@@ -140,19 +162,9 @@ namespace TelegramAutomation.ViewModels
                 Status = "正在初始化Chrome...";
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
-                cts.CancelAfter(TimeSpan.FromMinutes(2)); // 2分钟超时
+                cts.CancelAfter(TimeSpan.FromMinutes(2));
 
-                // 验证Chrome环境
-                if (!_chromeService.ValidateChromeEnvironment())
-                {
-                    throw new ChromeException(
-                        "Chrome环境验证失败",
-                        ErrorCodes.CHROME_ENVIRONMENT_ERROR
-                    );
-                }
-
-                // 初始化ChromeDriver
-                await _chromeService.InitializeAsync();
+                await ValidateAndInitializeChromeAsync(cts.Token);
                 
                 Status = "登录成功";
                 StatusColor = System.Windows.Media.Brushes.Green;
@@ -165,20 +177,53 @@ namespace TelegramAutomation.ViewModels
             }
             catch (Exception ex)
             {
-                _logger.LogException(ex, "登录失败");
-                Status = $"登录失败: {ex.Message}";
-                StatusColor = System.Windows.Media.Brushes.Red;
-                MessageBox.Show(
-                    ex.Message,
-                    "登录错误",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
+                HandleLoginError(ex);
             }
             finally
             {
                 IsLoading = false;
             }
+        }
+
+        private async Task ValidateAndInitializeChromeAsync(CancellationToken token)
+        {
+            if (_chromeService == null) return;
+
+            if (!_chromeService.ValidateChromeEnvironment())
+            {
+                throw new ChromeException(
+                    "Chrome环境验证失败",
+                    ErrorCodes.CHROME_ENVIRONMENT_ERROR
+                );
+            }
+
+            await _chromeService.InitializeAsync();
+        }
+
+        private void HandleInitializationError(Exception ex)
+        {
+            _logger.LogException(ex, "初始化失败");
+            Status = "初始化失败: " + ex.Message;
+            StatusColor = System.Windows.Media.Brushes.Red;
+            MessageBox.Show(
+                ex.Message,
+                "初始化错误",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error
+            );
+        }
+
+        private void HandleLoginError(Exception ex)
+        {
+            _logger.LogException(ex, "登录失败");
+            Status = $"登录失败: {ex.Message}";
+            StatusColor = System.Windows.Media.Brushes.Red;
+            MessageBox.Show(
+                ex.Message,
+                "登录错误",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error
+            );
         }
 
         public async Task InitializeAsync()
@@ -210,9 +255,13 @@ namespace TelegramAutomation.ViewModels
 
         public void Dispose()
         {
+            if (_disposed) return;
+            
             _cts.Cancel();
             _cts.Dispose();
             _chromeService?.Dispose();
+            
+            _disposed = true;
         }
 
         // 属性定义

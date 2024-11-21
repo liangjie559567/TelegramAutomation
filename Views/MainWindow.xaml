@@ -3,11 +3,17 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TelegramAutomation.Views"
         xmlns:viewmodels="clr-namespace:TelegramAutomation.ViewModels"
+        xmlns:converters="clr-namespace:TelegramAutomation.Converters"
         mc:Ignorable="d"
         Title="Telegram 自动化下载工具" Height="600" Width="1000"
         WindowStartupLocation="CenterScreen">
     
+    <Window.Resources>
+        <converters:InverseBoolConverter x:Key="LocalInverseBoolConverter"/>
+    </Window.Resources>
+
     <Window.DataContext>
         <viewmodels:MainViewModel/>
     </Window.DataContext>
@@ -33,7 +39,7 @@
                 </Grid.ColumnDefinitions>
                 
                 <TextBox Text="{Binding PhoneNumber, UpdateSourceTrigger=PropertyChanged}"
-                         IsEnabled="{Binding IsRequestingCode, Converter={StaticResource InverseBoolConverter}}"
+                         IsEnabled="{Binding IsRequestingCode, Converter={StaticResource LocalInverseBoolConverter}}"
                          Margin="0,0,10,0"/>
                 
                 <Button Grid.Column="1" Content="获取验证码" 
@@ -48,7 +54,7 @@
                 </Grid.ColumnDefinitions>
                 
                 <TextBox Text="{Binding VerificationCode, UpdateSourceTrigger=PropertyChanged}"
-                         IsEnabled="{Binding IsLoggingIn, Converter={StaticResource InverseBoolConverter}}"
+                         IsEnabled="{Binding IsLoggingIn, Converter={StaticResource LocalInverseBoolConverter}}"
                          Margin="0,0,10,0"/>
                 
                 <Button Grid.Column="1" Content="登录" 
