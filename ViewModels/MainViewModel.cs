@@ -112,7 +112,7 @@ namespace TelegramAutomation.ViewModels
             catch (Exception ex)
             {
                 _logger.Error(ex, "初始化失败");
-                Status = "初始化失败: " + ex.Message;
+                Status = "初始��失败: " + ex.Message;
                 StatusColor = System.Windows.Media.Brushes.Red;
                 throw;
             }
