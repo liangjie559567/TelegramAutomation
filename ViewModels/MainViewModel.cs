@@ -83,14 +83,7 @@ namespace TelegramAutomation.ViewModels
         public bool IsRunning
         {
             get => _isRunning;
-            set
-            {
-                if (SetProperty(ref _isRunning, value))
-                {
-                    (StartCommand as RelayCommand)?.RaiseCanExecuteChanged();
-                    (StopCommand as RelayCommand)?.RaiseCanExecuteChanged();
-                }
-            }
+            set => SetProperty(ref _isRunning, value);
         }
 
         public MainViewModel()
@@ -203,6 +196,46 @@ namespace TelegramAutomation.ViewModels
                 _logger.Error(ex, "更新登录状态失败");
                 LoginStatusMessage = "状态更新失败";
                 LoginStatusColor = System.Windows.Media.Brushes.Gray;
+            }
+        }
+
+        private async Task StartAutomation()
+        {
+            try
+            {
+                IsRunning = true;
+                Status = "正在运行...";
+                StatusColor = System.Windows.Media.Brushes.Green;
+                
+                // TODO: 实现自动化逻辑
+                await _chromeService.InitializeAsync();
+                
+                await Task.Delay(100); // 防止界面卡顿
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "自动化执行失败");
+                Status = "执行失败: " + ex.Message;
+                StatusColor = System.Windows.Media.Brushes.Red;
+            }
+        }
+
+        private async Task StopAutomation()
+        {
+            try
+            {
+                IsRunning = false;
+                Status = "已停止";
+                StatusColor = System.Windows.Media.Brushes.Gray;
+                
+                // TODO: 实现停止逻辑
+                await Task.Delay(100); // 防止界面卡顿
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "停止自动化失败");
+                Status = "停止失败: " + ex.Message;
+                StatusColor = System.Windows.Media.Brushes.Red;
             }
         }
     }

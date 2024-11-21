@@ -2,16 +2,10 @@ using System;
 
 namespace TelegramAutomation.Exceptions
 {
-    public class ChromeException : Exception
+    public class ChromeException : TelegramAutomationException
     {
-        public string ErrorCode { get; }
-        public string? AdditionalInfo { get; }
-
-        public ChromeException(string message, string errorCode, string? additionalInfo = null) 
-            : base(message)
-        {
-            ErrorCode = errorCode;
-            AdditionalInfo = additionalInfo;
-        }
+        public ChromeException(string message) : base(message) { }
+        public ChromeException(string message, Exception innerException) 
+            : base(message, innerException) { }
     }
 } 

@@ -11,6 +11,7 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using System.Net.Http;
 using System.Threading.Tasks;
+using TelegramAutomation.Exceptions;
 
 namespace TelegramAutomation.Services
 {
@@ -239,7 +240,7 @@ namespace TelegramAutomation.Services
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "获取Chrome版本失败");
+                _logger.Error(ex, "获���Chrome版本失败");
                 throw new ChromeException("无法获取Chrome版本", "VERSION_ERROR", ex.Message);
             }
         }
