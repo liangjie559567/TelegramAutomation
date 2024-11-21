@@ -5,31 +5,43 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.8.89</Version>
+    <Version>1.8.90</Version>
     <StartupObject>TelegramAutomation.Program</StartupObject>
-    <EnableDefaultPageItems>false</EnableDefaultPageItems>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
+  <!-- 源代码文件 -->
   <ItemGroup>
-    <Compile Include="**\*.cs" Exclude="obj\**" />
+    <Compile Include="Program.cs" />
+    <Compile Include="GlobalUsings.cs" />
+    <Compile Include="AutomationController.cs" />
+    <Compile Include="Commands\**\*.cs" />
+    <Compile Include="Constants\**\*.cs" />
+    <Compile Include="Exceptions\**\*.cs" />
+    <Compile Include="Helpers\**\*.cs" />
+    <Compile Include="Models\**\*.cs" />
+    <Compile Include="Services\**\*.cs" />
+    <Compile Include="ViewModels\**\*.cs" />
+    <Compile Include="Views\**\*.cs" />
   </ItemGroup>
 
+  <!-- WPF 应用程序定义 -->
   <ItemGroup>
-    <Page Include="**\*.xaml" Exclude="App.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
+    <Page Remove="App.xaml" />
     <ApplicationDefinition Include="App.xaml">
       <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Update="**\*.xaml.cs">
-      <DependentUpon>%(Filename)</DependentUpon>
-      <SubType>Code</SubType>
+    <Compile Include="App.xaml.cs">
+      <DependentUpon>App.xaml</DependentUpon>
     </Compile>
   </ItemGroup>
 
+  <!-- WPF 页面和主题 -->
+  <ItemGroup>
+    <Page Include="Views\**\*.xaml" />
+    <Page Include="Themes\**\*.xaml" />
+  </ItemGroup>
+
+  <!-- NuGet 包引用 -->
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="InputSimulatorStandard" Version="1.0.0" />
@@ -41,6 +53,7 @@
     <PackageReference Include="WebDriverManager" Version="2.17.2" />
   </ItemGroup>
 
+  <!-- 配置文件 -->
   <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
