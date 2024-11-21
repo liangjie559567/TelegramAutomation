@@ -24,6 +24,8 @@ namespace TelegramAutomation.Services
         private readonly string[] _searchPaths;
         private const string MINIMUM_CHROME_VERSION = "131.0.6778.86";
 
+        public bool IsInitialized => _isInitialized;
+
         public ChromeService(AppSettings settings)
         {
             _settings = settings;
@@ -69,30 +71,22 @@ namespace TelegramAutomation.Services
         {
             try
             {
-                var options = new ChromeOptions();
+                await Task.Run(() => {
+                    var options = new ChromeOptions();
+                    foreach (var option in _settings.ChromeDriver.Options)
+                    {
+                        options.AddArgument(option);
+                    }
+                    
+                    if (_settings.ChromeDriver.Headless)
+                    {
+                        options.AddArgument("--headless");
+                    }
+                    
+                    _driver = new ChromeDriver(options);
+                });
                 
-                // 添加 Chrome 选项
-                options.AddArgument("--disable-gpu");
-                options.AddArgument("--no-sandbox");
-                options.AddArgument("--disable-dev-shm-usage");
-                options.AddArgument("--disable-extensions");
-                
-                if (_settings.ChromeDriver.Headless)
-                {
-                    options.AddArgument("--headless");
-                }
-
-                // 设置下载首选项
-                options.AddUserProfilePreference("download.default_directory", _settings.DefaultSavePath);
-                options.AddUserProfilePreference("download.prompt_for_download", false);
-                options.AddUserProfilePreference("download.directory_upgrade", true);
-
-                var service = ChromeDriverService.CreateDefaultService();
-                service.HideCommandPromptWindow = true;
-
-                _logger.Info("正在初始化 ChromeDriver");
-                _driver = new ChromeDriver(service, options);
-                _logger.Info("ChromeDriver 初始化成功");
+                _isInitialized = true;
             }
             catch (Exception ex)
             {
@@ -253,6 +247,7 @@ namespace TelegramAutomation.Services
         {
             _driver?.Quit();
             _driver = null;
+            _isInitialized = false;
         }
     }
 } 
