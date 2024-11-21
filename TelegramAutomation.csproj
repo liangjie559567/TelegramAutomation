@@ -5,20 +5,17 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.8.82</Version>
+    <Version>1.8.83</Version>
     <StartupObject>TelegramAutomation.Program</StartupObject>
-    <EnableDefaultApplicationDefinition>true</EnableDefaultApplicationDefinition>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
   </PropertyGroup>
 
   <ItemGroup>
-    <ApplicationDefinition Include="App.xaml">
+    <Page Include="App.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
-    </ApplicationDefinition>
-  </ItemGroup>
-
-  <ItemGroup>
+    </Page>
     <Page Include="Views\MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
