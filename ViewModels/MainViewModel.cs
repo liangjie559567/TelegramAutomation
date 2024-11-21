@@ -67,6 +67,32 @@ namespace TelegramAutomation.ViewModels
             set => SetProperty(ref _statusColor, value);
         }
 
+        private ICommand? _startCommand;
+        public ICommand StartCommand => _startCommand ??= new RelayCommand(
+            async param => await StartAutomation(),
+            param => !IsRunning
+        );
+
+        private ICommand? _stopCommand;
+        public ICommand StopCommand => _stopCommand ??= new RelayCommand(
+            async param => await StopAutomation(),
+            param => IsRunning
+        );
+
+        private bool _isRunning;
+        public bool IsRunning
+        {
+            get => _isRunning;
+            set
+            {
+                if (SetProperty(ref _isRunning, value))
+                {
+                    (StartCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                    (StopCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                }
+            }
+        }
+
         public MainViewModel()
         {
             try 
@@ -112,7 +138,7 @@ namespace TelegramAutomation.ViewModels
             catch (Exception ex)
             {
                 _logger.Error(ex, "初始化失败");
-                Status = "初始��失败: " + ex.Message;
+                Status = "初始化失败: " + ex.Message;
                 StatusColor = System.Windows.Media.Brushes.Red;
                 throw;
             }
