@@ -26,7 +26,7 @@ namespace TelegramAutomation.Helpers
             [CallerFilePath] string sourceFilePath = "",
             [CallerLineNumber] int sourceLineNumber = 0)
         {
-            var errorCode = ex is TelegramAutomationException tae ? tae.ErrorCode : "UNKNOWN";
+            var errorCode = ex is TelegramAutomationException tae ? tae.ErrorCode : ErrorCodes.UNKNOWN_ERROR;
             
             logger.Error(ex, $"错误代码: {errorCode}, 位置: {methodName} at {sourceFilePath}:{sourceLineNumber}, 消息: {message}");
         }

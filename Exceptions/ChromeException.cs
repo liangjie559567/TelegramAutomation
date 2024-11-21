@@ -4,8 +4,10 @@ namespace TelegramAutomation.Exceptions
 {
     public class ChromeException : TelegramAutomationException
     {
-        public ChromeException(string message) : base(message) { }
-        public ChromeException(string message, Exception innerException) 
-            : base(message, innerException) { }
+        public ChromeException(string message, string errorCode) 
+            : base(message, errorCode) { }
+
+        public ChromeException(string message, string errorCode, Exception innerException) 
+            : base(message, errorCode, innerException) { }
     }
 } 

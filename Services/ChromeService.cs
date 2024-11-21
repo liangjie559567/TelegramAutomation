@@ -35,7 +35,10 @@ namespace TelegramAutomation.Services
                 var chromePath = DetectChromePath();
                 if (string.IsNullOrEmpty(chromePath))
                 {
-                    throw new ChromeException("未找到 Chrome 浏览器", "CHROME_NOT_FOUND");
+                    throw new ChromeException(
+                        "未找到 Chrome 浏览器",
+                        ErrorCodes.CHROME_NOT_FOUND
+                    );
                 }
 
                 var version = GetChromeVersion();
@@ -43,16 +46,20 @@ namespace TelegramAutomation.Services
                 {
                     throw new ChromeException(
                         $"Chrome 版本过低，需要 {MINIMUM_CHROME_VERSION} 或更高版本",
-                        "CHROME_VERSION_LOW"
+                        ErrorCodes.CHROME_VERSION_MISMATCH
                     );
                 }
 
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not ChromeException)
             {
                 _logger.Error(ex, "Chrome 环境验证失败");
-                throw;
+                throw new ChromeException(
+                    "Chrome 环境验证失败",
+                    ErrorCodes.CHROME_DRIVER_ERROR,
+                    ex
+                );
             }
         }
 
@@ -240,7 +247,7 @@ namespace TelegramAutomation.Services
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "获���Chrome版本失败");
+                _logger.Error(ex, "获Chrome版本失败");
                 throw new ChromeException("无法获取Chrome版本", "VERSION_ERROR", ex.Message);
             }
         }
@@ -275,9 +282,9 @@ namespace TelegramAutomation.Services
             {
                 _logger.Error(ex, "检查登录状态失败");
                 throw new LoginException(
-                    "检查登录状态失败", 
-                    "LOGIN_CHECK_FAILED",
-                    ex.ToString()
+                    "检查登录状态失败",
+                    ErrorCodes.LOGIN_FAILED,
+                    ex
                 );
             }
         }
