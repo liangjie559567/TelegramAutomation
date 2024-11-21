@@ -73,9 +73,10 @@ namespace TelegramAutomation.Services
             {
                 await Task.Run(() => {
                     var options = new ChromeOptions();
+                    
                     foreach (var option in _settings.ChromeDriver.Options)
                     {
-                        options.AddArgument(option);
+                        options.AddArgument(option.Value);
                     }
                     
                     if (_settings.ChromeDriver.Headless)
@@ -140,8 +141,12 @@ namespace TelegramAutomation.Services
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "获Chrome版本失败");
-                throw new ChromeException("无法获取Chrome版本", "VERSION_ERROR", ex.Message);
+                _logger.Error(ex, "获取Chrome版本失败");
+                throw new ChromeException(
+                    "无法获取Chrome版本",
+                    ErrorCodes.CHROME_VERSION_MISMATCH,
+                    ex
+                );
             }
         }
 
