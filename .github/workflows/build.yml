@@ -31,15 +31,23 @@ jobs:
       run: dotnet build --configuration Release --no-restore
       
     - name: Package
-      run: dotnet publish TelegramAutomation/TelegramAutomation.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
+      run: |
+        dir
+        dotnet publish ./TelegramAutomation/TelegramAutomation.csproj `
+          -c Release `
+          -r win-x64 `
+          --self-contained true `
+          /p:PublishSingleFile=true `
+          /p:IncludeNativeLibrariesForSelfExtract=true `
+          /p:EnableCompressionInSingleFile=true
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          TelegramAutomation/bin/Release/net8.0-windows/win-x64/publish/TelegramAutomation.exe
-          TelegramAutomation/appsettings.json
-          TelegramAutomation/nlog.config
+          ./TelegramAutomation/bin/Release/net8.0-windows/win-x64/publish/TelegramAutomation.exe
+          ./TelegramAutomation/appsettings.json
+          ./TelegramAutomation/nlog.config
         draft: false
         prerelease: false
