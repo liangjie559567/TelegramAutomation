@@ -17,9 +17,10 @@ namespace TelegramAutomation.Views
         {
             InitializeComponent();
             _viewModel = (MainViewModel)DataContext;
+            Loaded += MainWindow_Loaded;
         }
 
-        private async void Window_Loaded(object sender, RoutedEventArgs e)
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {

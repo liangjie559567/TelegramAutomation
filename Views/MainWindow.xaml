@@ -6,8 +6,7 @@
         xmlns:viewmodels="clr-namespace:TelegramAutomation.ViewModels"
         mc:Ignorable="d"
         Title="Telegram 自动化下载工具" Height="600" Width="1000"
-        WindowStartupLocation="CenterScreen"
-        Loaded="Window_Loaded">
+        WindowStartupLocation="CenterScreen">
     
     <Window.DataContext>
         <viewmodels:MainViewModel/>
