@@ -33,10 +33,13 @@ jobs:
       run: dotnet restore
       
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: |
+        echo "Building solution..."
+        dotnet build --configuration Release --no-restore --verbosity detailed
       
     - name: Package
       run: |
+        echo "Publishing application..."
         dotnet publish TelegramAutomation.csproj `
           -c Release `
           -r win-x64 `
@@ -44,14 +47,20 @@ jobs:
           /p:PublishSingleFile=true `
           /p:IncludeNativeLibrariesForSelfExtract=true `
           /p:EnableCompressionInSingleFile=true `
-          -o publish
+          -o publish `
+          --verbosity detailed
 
     - name: Create Archive
       shell: pwsh
       run: |
+        echo "Creating release archive..."
+        if (!(Test-Path publish)) {
+            throw "Publish directory not found!"
+        }
         Copy-Item appsettings.json publish/
         Copy-Item nlog.config publish/
-        Compress-Archive -Path publish/* -DestinationPath TelegramAutomation.zip
+        Get-ChildItem -Path publish -Recurse
+        Compress-Archive -Path publish/* -DestinationPath TelegramAutomation.zip -Verbose
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
