@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.9.12</Version>
+    <Version>1.9.13</Version>
     <StartupObject>TelegramAutomation.Program</StartupObject>
     <EnableDefaultItems>false</EnableDefaultItems>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
@@ -29,7 +29,34 @@
     </Page>
   </ItemGroup>
 
-  <!-- 资源文件 -->
+  <!-- NuGet 包引用 -->
+  <ItemGroup>
+    <!-- MVVM 和 UI -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    
+    <!-- 配置和依赖注入 -->
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    
+    <!-- 日志 -->
+    <PackageReference Include="NLog" Version="5.2.8" />
+    
+    <!-- Web 自动化 -->
+    <PackageReference Include="Selenium.WebDriver" Version="4.18.1" />
+    <PackageReference Include="WebDriverManager" Version="2.17.2" />
+    
+    <!-- 输入模拟 -->
+    <PackageReference Include="InputSimulatorStandard" Version="1.0.0" />
+    
+    <!-- JSON 处理 -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    
+    <!-- HTTP 客户端 -->
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
+  </ItemGroup>
+
+  <!-- 配置文件 -->
   <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -38,6 +65,4 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
-  <!-- NuGet 包引用保持不变 -->
 </Project> 
