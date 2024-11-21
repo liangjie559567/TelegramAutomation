@@ -31,53 +31,10 @@ jobs:
       run: dotnet build --configuration Release --no-restore
       
     - name: Test
-      run: dotnet test --no-build --verbosity normal
-      
-    - name: Generate coverage report
-      run: |
-        dotnet tool install --global coverlet.console
-        coverlet .\TelegramAutomation.Tests\bin\Release\net8.0-windows\TelegramAutomation.Tests.dll --target "dotnet" --targetargs "test --no-build" --format opencover --output ./coverage/coverage.xml
+      run: dotnet test --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage"
       
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage/coverage.xml
         fail_ci_if_error: true
-        
-    - name: Prepare Release Files
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        mkdir release
-        mkdir -p Assets
-        copy appsettings.json release\
-        copy nlog.config release\
-        copy README.md release\
-        copy CHANGELOG.md release\
-        echo "MIT License" > release\LICENSE
-      
-    - name: Publish
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        dotnet publish -c Release -r win-x64 --self-contained false `
-          /p:PublishSingleFile=true `
-          /p:IncludeNativeLibrariesForSelfExtract=true `
-          /p:DebugType=embedded
-        copy "bin\Release\net8.0-windows\win-x64\publish\TelegramAutomation.exe" release\
-      
-    - name: Create Release ZIP
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        Compress-Archive -Path release\* -DestinationPath TelegramAutomation.zip
-        
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          TelegramAutomation.zip
-        body_path: CHANGELOG.md
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
