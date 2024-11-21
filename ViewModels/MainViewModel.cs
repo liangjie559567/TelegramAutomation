@@ -187,6 +187,6 @@ namespace TelegramAutomation.ViewModels
             set => SetProperty(ref _isLoggedIn, value);
         }
 
-        public ICommand LoginCommand { get; private set; }
+        public required ICommand LoginCommand { get; init; }
     }
 }
