@@ -1,5 +1,5 @@
 using Xunit;
-using TelegramAutomation.Models;
+using TelegramAutomation.Configuration;
 
 namespace TelegramAutomation.Tests;
 
