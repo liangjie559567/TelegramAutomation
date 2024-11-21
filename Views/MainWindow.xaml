@@ -26,120 +26,69 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- 登录区域 -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+        <!-- 登录状态区域 -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
             <TextBlock Text="登录状态:" Margin="0,0,0,5"/>
-            <TextBlock Text="{Binding LoginStatusMessage}" 
-                       Foreground="{Binding LoginStatusColor}"/>
-            
-            <Grid Margin="0,10,0,0">
+            <TextBlock Text="{Binding Status}" Foreground="{Binding StatusColor}"/>
+        </StackPanel>
+
+        <!-- 手机号输入区域 -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,10">
+            <TextBlock Text="手机号:" Margin="0,0,0,5"/>
+            <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                
                 <TextBox Text="{Binding PhoneNumber, UpdateSourceTrigger=PropertyChanged}"
-                         IsEnabled="{Binding IsRequestingCode, Converter={StaticResource LocalInverseBoolConverter}}"
-                         Margin="0,0,10,0"/>
-                
-                <Button Grid.Column="1" Content="获取验证码" 
+                         IsEnabled="{Binding IsLoading, Converter={StaticResource LocalInverseBoolConverter}}"/>
+                <Button Grid.Column="1" Content="获取验证码" Margin="10,0,0,0"
                         Command="{Binding RequestCodeCommand}"
-                        Width="100"/>
-            </Grid>
-
-            <Grid Margin="0,10,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                
-                <TextBox Text="{Binding VerificationCode, UpdateSourceTrigger=PropertyChanged}"
-                         IsEnabled="{Binding IsLoggingIn, Converter={StaticResource LocalInverseBoolConverter}}"
-                         Margin="0,0,10,0"/>
-                
-                <Button Grid.Column="1" Content="登录" 
-                        Command="{Binding LoginCommand}"
-                        Width="100"/>
+                        IsEnabled="{Binding CanRequestCode}"/>
             </Grid>
         </StackPanel>
 
-        <!-- 下载配置区域 -->
-        <Grid Grid.Row="1" Margin="0,0,0,20">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-
-            <TextBox Grid.Row="0" Grid.Column="0" 
-                     Text="{Binding ChannelUrl, UpdateSourceTrigger=PropertyChanged}"
-                     Margin="0,0,10,10"
-                     ToolTip="输入Telegram频道链接"/>
-
-            <TextBox Grid.Row="1" Grid.Column="0" 
-                     Text="{Binding SavePath}"
-                     IsReadOnly="True"
-                     Margin="0,0,10,0"
-                     ToolTip="选择保存路径"/>
-
-            <Button Grid.Row="1" Grid.Column="1" 
-                    Content="浏览" 
-                    Command="{Binding BrowseFolderCommand}"
-                    Width="100"/>
-        </Grid>
-
-        <!-- 操作按钮 -->
-        <StackPanel Grid.Row="1" Margin="0,0,0,10" 
-                    Orientation="Horizontal" 
-                    HorizontalAlignment="Right">
-            <Button Content="开始" 
-                    Command="{Binding StartCommand}"
-                    Width="100" 
-                    Margin="0,0,10,0"/>
-            
-            <Button Content="暂停" 
-                    Command="{Binding PauseCommand}"
-                    Width="100" 
-                    Margin="0,0,10,0"/>
-            
-            <Button Content="停止" 
-                    Command="{Binding StopCommand}"
-                    Width="100"/>
+        <!-- 验证码输入区域 -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,10">
+            <TextBlock Text="验证码:" Margin="0,0,0,5"/>
+            <TextBox x:Name="VerificationCodeBox"
+                     Text="{Binding VerificationCode, UpdateSourceTrigger=PropertyChanged}"
+                     IsEnabled="{Binding IsLoading, Converter={StaticResource LocalInverseBoolConverter}}"
+                     MaxLength="5"/>
+            <TextBlock Text="验证码将发送到您的 Telegram 应用"
+                       Foreground="Gray"
+                       Margin="0,5,0,0"
+                       FontSize="12"/>
+            <Button Content="登录" 
+                    Margin="0,10,0,0"
+                    Command="{Binding LoginCommand}"
+                    IsEnabled="{Binding CanLogin}"/>
         </StackPanel>
 
-        <!-- 状态和日志区域 -->
-        <Grid Grid.Row="2">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+        <!-- 添加进度提示区域 -->
+        <Border Grid.Row="0" Grid.RowSpan="4" 
+                Background="#80000000" 
+                Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center" 
+                        VerticalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" 
+                             Width="200" 
+                             Height="2" 
+                             Margin="0,0,0,10"/>
+                <TextBlock Text="{Binding Status}" 
+                           Foreground="White" 
+                           HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
 
-            <TextBlock Grid.Row="0" 
-                       Text="{Binding Status}"
-                       Foreground="{Binding StatusColor}"
-                       Margin="0,0,0,10"/>
-
-            <ScrollViewer Grid.Row="1" 
-                          VerticalScrollBarVisibility="Auto">
-                <TextBox Text="{Binding LogContent, Mode=OneWay}"
-                         IsReadOnly="True"
-                         TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Visible"/>
-            </ScrollViewer>
-        </Grid>
-
-        <!-- 网络状态指示器 -->
-        <StackPanel Grid.Row="3" 
-                    Orientation="Horizontal" 
-                    HorizontalAlignment="Right"
-                    Margin="0,10,0,0">
-            <Ellipse Width="12" Height="12" 
-                     Fill="{Binding NetworkStatusColor}"
-                     Margin="0,0,5,0"/>
-            <TextBlock Text="{Binding NetworkStatusText}"/>
+        <!-- 操作按钮区域 -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="开始" Command="{Binding StartCommand}" Margin="0,0,10,0"
+                    IsEnabled="{Binding CanStart}"/>
+            <Button Content="暂停" Command="{Binding PauseCommand}" Margin="0,0,10,0"
+                    IsEnabled="{Binding CanPause}"/>
+            <Button Content="停止" Command="{Binding StopCommand}"
+                    IsEnabled="{Binding CanStop}"/>
         </StackPanel>
     </Grid>
 </Window> 

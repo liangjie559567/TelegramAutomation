@@ -29,6 +29,50 @@ namespace TelegramAutomation.ViewModels
         private readonly CancellationTokenSource _cts = new();
         private bool _disposed;
         
+        private string _phoneNumber = string.Empty;
+        public string PhoneNumber 
+        {
+            get => _phoneNumber;
+            set
+            {
+                if (SetProperty(ref _phoneNumber, value))
+                {
+                    UpdateCanRequestCode();
+                }
+            }
+        }
+
+        private string _verificationCode = string.Empty;
+        public string VerificationCode
+        {
+            get => _verificationCode;
+            set
+            {
+                if (SetProperty(ref _verificationCode, value))
+                {
+                    UpdateCanLogin();
+                }
+            }
+        }
+
+        private bool _canRequestCode;
+        public bool CanRequestCode
+        {
+            get => _canRequestCode;
+            private set => SetProperty(ref _canRequestCode, value);
+        }
+
+        private bool _canLogin;
+        public bool CanLogin
+        {
+            get => _canLogin;
+            private set => SetProperty(ref _canLogin, value);
+        }
+
+        // 添加验证码请求频率限制
+        private DateTime _lastRequestTime = DateTime.MinValue;
+        private const int REQUEST_COOLDOWN_SECONDS = 60;
+        
         public MainViewModel()
         {
             try
@@ -42,6 +86,7 @@ namespace TelegramAutomation.ViewModels
                     LoginCommand = new RelayCommand(async _ => await ExecuteLoginCommandAsync());
                     StopCommand = new RelayCommand(_ => ExecuteStopCommand());
                     RetryCommand = new RelayCommand(async _ => await ExecuteRetryCommandAsync());
+                    RequestCodeCommand = new RelayCommand(async _ => await ExecuteRequestCodeCommandAsync());
                 }
                 else
                 {
@@ -215,15 +260,28 @@ namespace TelegramAutomation.ViewModels
 
         private void HandleLoginError(Exception ex)
         {
-            _logger.LogException(ex, "登录失败");
-            Status = $"登录失败: {ex.Message}";
+            string errorMessage;
+            string errorCode = ErrorCodes.UNKNOWN_ERROR;
+
+            if (ex is ChromeDriverException chromeEx)
+            {
+                errorCode = chromeEx.ErrorCode;
+                errorMessage = "Chrome驱动初始化失败: " + chromeEx.Message;
+            }
+            else if (ex is LoginException loginEx)
+            {
+                errorCode = loginEx.ErrorCode;
+                errorMessage = "登录失败: " + loginEx.Message;
+            }
+            else
+            {
+                errorMessage = "发生未知错误: " + ex.Message;
+            }
+
+            _logger.Error(ex, $"错误代码: {errorCode}, 位置: HandleLoginError at {ex.StackTrace}, 消息: {errorMessage}");
+            Status = errorMessage;
             StatusColor = System.Windows.Media.Brushes.Red;
-            MessageBox.Show(
-                ex.Message,
-                "登录错误",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error
-            );
+            IsLoading = false;
         }
 
         public async Task InitializeAsync()
@@ -268,12 +326,21 @@ namespace TelegramAutomation.ViewModels
         public ICommand? LoginCommand { get; private set; }
         public ICommand? StopCommand { get; private set; }
         public ICommand? RetryCommand { get; private set; }
+        public ICommand? RequestCodeCommand { get; private set; }
+        public ICommand? StartCommand { get; private set; }
+        public ICommand? PauseCommand { get; private set; }
 
         private bool _isLoading;
         public bool IsLoading
         {
             get => _isLoading;
-            set => SetProperty(ref _isLoading, value);
+            set
+            {
+                if (SetProperty(ref _isLoading, value))
+                {
+                    UpdateCommandStates();
+                }
+            }
         }
 
         private string _status = "就绪";
@@ -296,5 +363,139 @@ namespace TelegramAutomation.ViewModels
             get => _isLoggedIn;
             set => SetProperty(ref _isLoggedIn, value);
         }
+
+        // 添加手机号格式化
+        private string FormatPhoneNumber(string phone)
+        {
+            // 移除所有非数字字符
+            var numbers = new string(phone.Where(char.IsDigit).ToArray());
+            
+            // 如果没有国际区号，默认添加+86
+            if (!phone.StartsWith("+"))
+            {
+                return numbers.Length <= 11 ? $"+86{numbers}" : $"+{numbers}";
+            }
+            return $"+{numbers}";
+        }
+
+        private async Task ExecuteRequestCodeCommandAsync()
+        {
+            try
+            {
+                // 验证手机号格式
+                if (!Regex.IsMatch(PhoneNumber, @"^\+?[1-9]\d{1,14}$"))
+                {
+                    MessageBox.Show("请输入正确的手机号码格式\n例如: +8613800138000", 
+                        "格式错误", 
+                        MessageBoxButton.OK, 
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                // 检查请求频率
+                var timeSinceLastRequest = DateTime.Now - _lastRequestTime;
+                if (timeSinceLastRequest.TotalSeconds < REQUEST_COOLDOWN_SECONDS)
+                {
+                    var remainingSeconds = REQUEST_COOLDOWN_SECONDS - (int)timeSinceLastRequest.TotalSeconds;
+                    MessageBox.Show($"请求过于频繁，请等待 {remainingSeconds} 秒后重试", 
+                        "提示", 
+                        MessageBoxButton.OK, 
+                        MessageBoxImage.Information);
+                    return;
+                }
+
+                IsLoading = true;
+                Status = "正在初始化浏览器...";
+                StatusColor = System.Windows.Media.Brushes.Gray;
+
+                if (_chromeService == null) throw new InvalidOperationException("Chrome服务未初始化");
+
+                // 格式化手机号
+                var formattedPhone = FormatPhoneNumber(PhoneNumber);
+                
+                Status = "正在打开 Telegram Web...";
+                await _chromeService.InitializeAsync();
+                
+                Status = "正在请求验证码...";
+                await _chromeService.RequestVerificationCode(formattedPhone);
+                
+                _lastRequestTime = DateTime.Now;
+                Status = "验证码已发送，请注意查收";
+                StatusColor = System.Windows.Media.Brushes.Green;
+
+                // 自动聚焦到验证码输入框
+                Application.Current.Dispatcher.BeginInvoke(() =>
+                {
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        var verificationCodeBox = mainWindow.FindName("VerificationCodeBox") as TextBox;
+                        verificationCodeBox?.Focus();
+                    }
+                });
+            }
+            catch (ChromeException ex)
+            {
+                HandleError(ex, "Chrome 浏览器错误");
+            }
+            catch (LoginException ex)
+            {
+                HandleError(ex, "登录错误");
+            }
+            catch (Exception ex)
+            {
+                HandleError(ex, "请求验证码失败");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        private void HandleError(Exception ex, string context)
+        {
+            var errorCode = (ex as TelegramAutomationException)?.ErrorCode ?? ErrorCodes.UNKNOWN_ERROR;
+            var errorMessage = $"{context}: {ex.Message}";
+            
+            _logger.Error(ex, $"错误代码: {errorCode}, 上下文: {context}, 消息: {ex.Message}");
+            Status = errorMessage;
+            StatusColor = System.Windows.Media.Brushes.Red;
+            
+            MessageBox.Show(
+                errorMessage,
+                "错误",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error
+            );
+        }
+
+        private void UpdateCanRequestCode()
+        {
+            CanRequestCode = !IsLoading && 
+                            !string.IsNullOrWhiteSpace(PhoneNumber) && 
+                            Regex.IsMatch(PhoneNumber, @"^\+\d{11,15}$");
+        }
+
+        private void UpdateCanLogin()
+        {
+            CanLogin = !IsLoading && 
+                      !string.IsNullOrWhiteSpace(PhoneNumber) && 
+                      !string.IsNullOrWhiteSpace(VerificationCode) &&
+                      VerificationCode.Length >= 5;
+        }
+
+        // 添加命令状态更新方法
+        private void UpdateCommandStates()
+        {
+            UpdateCanRequestCode();
+            UpdateCanLogin();
+            OnPropertyChanged(nameof(CanStart));
+            OnPropertyChanged(nameof(CanPause));
+            OnPropertyChanged(nameof(CanStop));
+        }
+
+        // 添加命令状态属性
+        public bool CanStart => IsLoggedIn && !IsLoading;
+        public bool CanPause => IsLoggedIn && IsLoading;
+        public bool CanStop => IsLoggedIn;
     }
 }

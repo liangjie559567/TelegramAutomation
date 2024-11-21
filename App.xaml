@@ -5,10 +5,12 @@
              xmlns:converters="clr-namespace:TelegramAutomation.Converters">
     <Application.Resources>
         <ResourceDictionary>
-            <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/TelegramAutomation;component/Themes/Default.xaml"/>
+                <ResourceDictionary Source="/Themes/Default.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+            
+            <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
