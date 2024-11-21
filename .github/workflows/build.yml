@@ -31,15 +31,11 @@ jobs:
       run: dotnet build --configuration Release --no-restore
       
     - name: Test with coverage
-      run: |
-        dotnet test --configuration Release --no-build --verbosity normal `
-          /p:CollectCoverage=true `
-          /p:CoverletOutputFormat=opencover `
-          /p:CoverletOutput=./coverage/coverage.xml
+      run: dotnet test --configuration Release --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=./TestResults/coverage.cobertura.xml
       
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage/coverage.xml
+        files: ./TelegramAutomation.Tests/TestResults/coverage.cobertura.xml
         fail_ci_if_error: true
