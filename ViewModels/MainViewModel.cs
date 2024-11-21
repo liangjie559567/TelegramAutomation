@@ -17,6 +17,8 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.ComponentModel;
 using Microsoft.Extensions.Configuration;
+using System.Windows;
+using MessageBox = System.Windows.MessageBox;
 
 namespace TelegramAutomation.ViewModels
 {
@@ -99,6 +101,63 @@ namespace TelegramAutomation.ViewModels
             }
         }
 
+        public async Task InitializeAsync()
+        {
+            try
+            {
+                Status = "正在初始化...";
+                StatusColor = System.Windows.Media.Brushes.Gray;
+
+                // 检查网络状态
+                await CheckNetworkStatusAsync();
+
+                // 初始化 Chrome 服务
+                if (!_chromeService.ValidateChromeEnvironment())
+                {
+                    throw new ChromeException(
+                        "Chrome环境验证失败",
+                        ErrorCodes.CHROME_ENVIRONMENT_ERROR
+                    );
+                }
+
+                Status = "初始化完成";
+                StatusColor = System.Windows.Media.Brushes.Green;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogException(ex, "初始化失败");
+                Status = "初始化失败: " + ex.Message;
+                StatusColor = System.Windows.Media.Brushes.Red;
+                MessageBox.Show(
+                    ex.Message,
+                    "初始化错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+            }
+        }
+
+        private async Task CheckNetworkStatusAsync()
+        {
+            try
+            {
+                using var client = new HttpClient();
+                var response = await client.GetAsync("https://www.google.com");
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new Exception("网络连接异常");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new TelegramAutomationException(
+                    "网络连接失败，请检查网络设置",
+                    ErrorCodes.NETWORK_ERROR,
+                    ex
+                );
+            }
+        }
+
         // 属性定义
         private bool _isLoading;
         public bool IsLoading
@@ -112,6 +171,13 @@ namespace TelegramAutomation.ViewModels
         {
             get => _status;
             set => SetProperty(ref _status, value);
+        }
+
+        private System.Windows.Media.Brush _statusColor = System.Windows.Media.Brushes.Gray;
+        public System.Windows.Media.Brush StatusColor
+        {
+            get => _statusColor;
+            set => SetProperty(ref _statusColor, value);
         }
 
         private bool _isLoggedIn;
