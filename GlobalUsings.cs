@@ -1,0 +1,13 @@
+global using System;
+global using System.Collections.Generic;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using System.Windows;
+global using System.Windows.Input;
+global using NLog;
+global using TelegramAutomation.Commands;
+global using TelegramAutomation.Constants;
+global using TelegramAutomation.Exceptions;
+global using TelegramAutomation.Helpers;
+global using TelegramAutomation.Models;
+global using TelegramAutomation.Services; 

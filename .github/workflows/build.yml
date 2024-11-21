@@ -1,0 +1,71 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 8.0.x
+        
+    - name: Clean
+      run: dotnet clean && dotnet nuget locals all --clear
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+      
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+      
+    - name: Prepare Release Files
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        mkdir release
+        mkdir -p Assets
+        copy appsettings.json release\
+        copy nlog.config release\
+        copy README.md release\
+        copy CHANGELOG.md release\
+        echo "MIT License" > release\LICENSE
+      
+    - name: Publish
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        dotnet publish -c Release -r win-x64 --self-contained false `
+          /p:PublishSingleFile=true `
+          /p:IncludeNativeLibrariesForSelfExtract=true `
+          /p:DebugType=embedded
+        copy "bin\Release\net8.0-windows\win-x64\publish\TelegramAutomation.exe" release\
+      
+    - name: Create Release ZIP
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        Compress-Archive -Path release\* -DestinationPath TelegramAutomation.zip
+        
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          TelegramAutomation.zip
+        body_path: CHANGELOG.md
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
