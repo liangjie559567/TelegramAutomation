@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 public class SessionData
 {
     public string PhoneNumber { get; set; } = string.Empty;

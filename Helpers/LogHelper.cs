@@ -1,5 +1,6 @@
 using NLog;
 using System.Runtime.CompilerServices;
+using System;
 
 namespace TelegramAutomation.Helpers
 {

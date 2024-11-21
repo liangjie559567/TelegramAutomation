@@ -10,6 +10,7 @@ using WebDriverManager.Helpers;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace TelegramAutomation.Services
 {

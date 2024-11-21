@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 using TelegramAutomation.Models;
+using System.Collections.Generic;
 
 namespace TelegramAutomation.Models
 {

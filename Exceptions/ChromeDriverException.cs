@@ -1,3 +1,5 @@
+using System;
+
 namespace TelegramAutomation.Exceptions
 {
     public class ChromeDriverException : ChromeException

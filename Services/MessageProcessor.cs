@@ -7,6 +7,7 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using NLog;
 using TelegramAutomation.Models;
+using System.Threading;
 
 namespace TelegramAutomation.Services
 {
