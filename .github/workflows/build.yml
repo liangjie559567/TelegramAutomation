@@ -21,6 +21,10 @@ jobs:
       with:
         dotnet-version: 8.0.x
         
+    - name: List Directory
+      run: |
+        dir /s /b
+        
     - name: Clean
       run: dotnet clean
         
@@ -32,7 +36,7 @@ jobs:
       
     - name: Package
       run: |
-        dotnet publish TelegramAutomation.csproj `
+        dotnet publish `
           -c Release `
           -r win-x64 `
           --self-contained true `
