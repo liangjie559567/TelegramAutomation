@@ -5,9 +5,37 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.8.90</Version>
+    <Version>1.8.91</Version>
     <StartupObject>TelegramAutomation.Program</StartupObject>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
   </PropertyGroup>
+
+  <!-- WPF 应用程序定义 -->
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+    <Compile Include="App.xaml.cs">
+      <DependentUpon>App.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <!-- WPF 页面和主题 -->
+  <ItemGroup>
+    <Page Include="Views\**\*.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Themes\**\*.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\**\*.xaml.cs">
+      <DependentUpon>%(Filename)</DependentUpon>
+    </Compile>
+  </ItemGroup>
 
   <!-- 源代码文件 -->
   <ItemGroup>
@@ -21,24 +49,6 @@
     <Compile Include="Models\**\*.cs" />
     <Compile Include="Services\**\*.cs" />
     <Compile Include="ViewModels\**\*.cs" />
-    <Compile Include="Views\**\*.cs" />
-  </ItemGroup>
-
-  <!-- WPF 应用程序定义 -->
-  <ItemGroup>
-    <Page Remove="App.xaml" />
-    <ApplicationDefinition Include="App.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </ApplicationDefinition>
-    <Compile Include="App.xaml.cs">
-      <DependentUpon>App.xaml</DependentUpon>
-    </Compile>
-  </ItemGroup>
-
-  <!-- WPF 页面和主题 -->
-  <ItemGroup>
-    <Page Include="Views\**\*.xaml" />
-    <Page Include="Themes\**\*.xaml" />
   </ItemGroup>
 
   <!-- NuGet 包引用 -->
