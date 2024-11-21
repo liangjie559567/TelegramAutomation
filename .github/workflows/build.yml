@@ -47,6 +47,8 @@ jobs:
           /p:PublishSingleFile=true `
           /p:IncludeNativeLibrariesForSelfExtract=true `
           /p:EnableCompressionInSingleFile=true `
+          /p:DebugType=None `
+          /p:DebugSymbols=false `
           -o publish `
           --verbosity detailed
 
@@ -59,6 +61,8 @@ jobs:
         }
         Copy-Item appsettings.json publish/
         Copy-Item nlog.config publish/
+        Copy-Item -Path selenium-manager -Destination publish/selenium-manager -Recurse
+        Remove-Item publish/*.pdb -Force
         Get-ChildItem -Path publish -Recurse
         Compress-Archive -Path publish/* -DestinationPath TelegramAutomation.zip -Verbose
 
