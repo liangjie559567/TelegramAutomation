@@ -1,5 +1,6 @@
 using NLog;
 using System;
+using System.IO;
 using System.Windows;
 using System.Threading.Tasks;
 using System.Diagnostics;
@@ -33,12 +34,12 @@ namespace TelegramAutomation
 
         private static void ValidateConfigurations()
         {
-            if (!System.IO.File.Exists("appsettings.json"))
+            if (!File.Exists("appsettings.json"))
             {
                 throw new FileNotFoundException("配置文件 appsettings.json 不存在");
             }
 
-            if (!System.IO.File.Exists("nlog.config"))
+            if (!File.Exists("nlog.config"))
             {
                 throw new FileNotFoundException("日志配置文件 nlog.config 不存在");
             }
