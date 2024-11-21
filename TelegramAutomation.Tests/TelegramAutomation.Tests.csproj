@@ -24,4 +24,13 @@
   <ItemGroup>
     <ProjectReference Include="..\TelegramAutomation\TelegramAutomation.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\TelegramAutomation\appsettings.json" Link="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\TelegramAutomation\nlog.config" Link="nlog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project> 

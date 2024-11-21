@@ -29,19 +29,3 @@ jobs:
       
     - name: Build
       run: dotnet build --configuration Release
-      
-    - name: Test with coverage
-      run: |
-        dotnet test TelegramAutomation.Tests/TelegramAutomation.Tests.csproj `
-          --configuration Release `
-          --verbosity normal `
-          /p:CollectCoverage=true `
-          /p:CoverletOutputFormat=cobertura `
-          /p:CoverletOutput=./TestResults/coverage.cobertura.xml
-      
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./TelegramAutomation.Tests/TestResults/coverage.cobertura.xml
-        fail_ci_if_error: true

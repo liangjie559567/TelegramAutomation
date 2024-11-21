@@ -5,7 +5,4 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TelegramAutomation", "TelegramAutomation\TelegramAutomation.csproj", "{GUID-1}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TelegramAutomation.Tests", "TelegramAutomation.Tests\TelegramAutomation.Tests.csproj", "{GUID-2}"
-    ProjectSection(ProjectDependencies) = postProject
-        {GUID-1} = {GUID-1}
-    EndProjectSection
 EndProject 
