@@ -12,236 +12,186 @@ using OpenQA.Selenium.Chrome;
 using System.Net.Http;
 using System.Threading.Tasks;
 using TelegramAutomation.Exceptions;
+using System.Threading;
+using OpenQA.Selenium.Support.UI;
+using TelegramAutomation.ViewModels;
 
 namespace TelegramAutomation.Services
 {
     public class ChromeService : IDisposable
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
+        private readonly AppSettings _settings;
         private IWebDriver? _driver;
         private bool _isInitialized;
-        private readonly AppSettings _settings;
-        private readonly string[] _searchPaths;
-        private const string MINIMUM_CHROME_VERSION = "131.0.6778.86";
-
-        public bool IsInitialized => _isInitialized;
+        private const string MINIMUM_CHROME_VERSION = "90.0.0.0";
 
         public ChromeService(AppSettings settings)
         {
-            _settings = settings;
-            _searchPaths = settings.ChromeDriver.SearchPaths;
-        }
-
-        public bool ValidateChromeEnvironment()
-        {
-            try
-            {
-                var chromePath = DetectChromePath();
-                if (string.IsNullOrEmpty(chromePath))
-                {
-                    throw new ChromeException(
-                        "未找到 Chrome 浏览器",
-                        ErrorCodes.CHROME_NOT_FOUND
-                    );
-                }
-
-                var version = GetChromeVersion();
-                if (CompareVersions(version, MINIMUM_CHROME_VERSION) < 0)
-                {
-                    throw new ChromeException(
-                        $"Chrome 版本过低，需要 {MINIMUM_CHROME_VERSION} 或更高版本",
-                        ErrorCodes.CHROME_VERSION_MISMATCH
-                    );
-                }
-
-                return true;
-            }
-            catch (Exception ex) when (ex is not ChromeException)
-            {
-                _logger.Error(ex, "Chrome 环境验证失败");
-                throw new ChromeException(
-                    "Chrome 环境验证失败",
-                    ErrorCodes.CHROME_DRIVER_ERROR,
-                    ex
-                );
-            }
-        }
-
-        private async Task InitializeDriverAsync()
-        {
-            try
-            {
-                await Task.Run(() => {
-                    var options = new ChromeOptions();
-                    
-                    foreach (var option in _settings.ChromeDriver.Options)
-                    {
-                        options.AddArgument(option.Value);
-                    }
-                    
-                    if (_settings.ChromeDriver.Headless)
-                    {
-                        options.AddArgument("--headless");
-                    }
-                    
-                    _driver = new ChromeDriver(options);
-                });
-                
-                _isInitialized = true;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "初始化 ChromeDriver 失败");
-                throw new ChromeDriverException(
-                    "初始化 ChromeDriver 失败",
-                    ErrorCodes.INITIALIZATION_ERROR,
-                    ex
-                );
-            }
-        }
-
-        public async Task<bool> CheckLoginStatusAsync()
-        {
-            try
-            {
-                // 实现登录状态检查逻辑
-                await Task.Delay(100); // 模拟异步操作
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "检查登录状态失败");
-                throw new LoginException(
-                    "检查登录状态失败",
-                    ErrorCodes.LOGIN_FAILED,
-                    ex
-                );
-            }
-        }
-
-        private string DetectChromePath()
-        {
-            // 实现 Chrome 路径检测逻辑
-            return @"C:\Program Files\Google\Chrome\Application\chrome.exe";
-        }
-
-        private int CompareVersions(string v1, string v2)
-        {
-            // 实现版本比较逻辑
-            return Version.Parse(v1).CompareTo(Version.Parse(v2));
-        }
-
-        private string GetChromeVersion()
-        {
-            try
-            {
-                var chromePath = DetectChromePath();
-                var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
-                return versionInfo.FileVersion ?? string.Empty;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "获取Chrome版本失败");
-                throw new ChromeException(
-                    "无法获取Chrome版本",
-                    ErrorCodes.CHROME_VERSION_MISMATCH,
-                    ex
-                );
-            }
-        }
-
-        private string GetChromePath()
-        {
-            var possiblePaths = new[]
-            {
-                @"C:\Program Files\Google\Chrome\Application\chrome.exe",
-                @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
-            }.Concat(_searchPaths);
-
-            foreach (var path in possiblePaths)
-            {
-                if (File.Exists(path))
-                {
-                    return path;
-                }
-            }
-            throw new ChromeException("未找到Chrome浏览器", "CHROME_NOT_FOUND");
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
         public async Task InitializeAsync()
         {
             try
             {
-                var chromeVersion = await GetChromeVersionAsync();
-                var driverVersion = await GetDriverVersionAsync(chromeVersion);
-                await SetupChromeDriverAsync(driverVersion);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "ChromeService初始化失败");
-                throw;
-            }
-        }
+                if (_isInitialized)
+                {
+                    _logger.Info("Chrome 服务已初始化");
+                    return;
+                }
 
-        private async Task<string> GetDriverVersionAsync(string chromeVersion)
-        {
-            try
-            {
-                using var client = new HttpClient();
-                var response = await client.GetStringAsync(
-                    $"https://chromedriver.storage.googleapis.com/LATEST_RELEASE_{chromeVersion.Split('.')[0]}");
-                return await Task.FromResult(response.Trim());
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "获取ChromeDriver版本失败");
-                throw new ChromeDriverException(
-                    "无法获取ChromeDriver版本",
-                    ErrorCodes.CHROME_DRIVER_ERROR,
-                    ex
-                );
-            }
-        }
+                _logger.Info("正在初始化 Chrome 服务...");
+                
+                var options = new ChromeOptions();
+                options.AddArgument("--no-sandbox");
+                options.AddArgument("--disable-dev-shm-usage");
+                options.AddArgument("--disable-gpu");
+                options.AddArgument("--disable-extensions");
+                options.AddArgument("--start-maximized");
+                options.AddArgument("--disable-blink-features=AutomationControlled");
+                options.AddArgument("--disable-web-security");
+                options.AddArgument("--disable-features=IsolateOrigins,site-per-process");
+                
+                // 设置 user-agent
+                options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
 
-        private async Task SetupChromeDriverAsync(string version)
-        {
-            try
-            {
-                await Task.Run(() => {
-                    var manager = new DriverManager();
-                    manager.SetUpDriver(
-                        new ChromeConfig(),
-                        version,
-                        Architecture.X64
+                options.AddArgument("--disable-notifications");
+                options.AddArgument("--disable-popup-blocking");
+                options.AddArgument("--disable-infobars");
+                options.AddArgument("--ignore-certificate-errors");
+
+                _driver = new ChromeDriver(options);
+                _driver.Manage().Window.Maximize();
+                _driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(30);
+                _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(0);
+                
+                // 使用 /k/ 版本的 Telegram Web
+                _logger.Info("正在访问 Telegram Web...");
+                _driver.Navigate().GoToUrl("https://web.telegram.org/k/");
+                await Task.Delay(8000);
+
+                try
+                {
+                    var loginViewModel = new LoginViewModel(_driver);
+                    
+                    // 1. 点击登录按钮
+                    await loginViewModel.ClickLoginButton();
+                    await Task.Delay(2000);
+
+                    // 2. 输入手机号
+                    await loginViewModel.EnterPhoneNumber("+18479005288");
+                    await Task.Delay(2000);
+
+                    // 3. 等待用户输入验证码
+                    var verificationCode = await loginViewModel.WaitForVerificationCode();
+                    
+                    // 4. 输入验证码
+                    await loginViewModel.EnterVerificationCode(verificationCode);
+                    await Task.Delay(5000); // 等待登录完成
+
+                    // 5. 切换到指定频道
+                    Console.WriteLine("\n请输入要访问的频道名称: ");
+                    var channelName = Console.ReadLine()?.Trim();
+                    if (!string.IsNullOrEmpty(channelName))
+                    {
+                        await loginViewModel.NavigateToChannel(channelName);
+                    }
+                    
+                    _isInitialized = true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "登录操作失败");
+                    throw new ChromeException(
+                        "登录操作失败: " + ex.Message,
+                        ErrorCodes.LOGIN_FAILED,
+                        ex
                     );
-                });
+                }
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "设置ChromeDriver失败");
-                throw new ChromeDriverException(
-                    "设置ChromeDriver失败",
-                    ErrorCodes.CHROME_DRIVER_ERROR,
+                _logger.Error(ex, "Chrome 初始化失败");
+                throw new ChromeException(
+                    $"Chrome 初始化失败: {ex.Message}",
+                    ErrorCodes.INITIALIZATION_ERROR,
                     ex
                 );
             }
         }
 
-        public async Task<string> GetChromeVersionAsync()
+        public bool IsInitialized => _isInitialized;
+
+        private string GetChromePath()
+        {
+            _logger.Info("正在查找 Chrome 浏览器...");
+            
+            if (_settings.ChromeDriver?.SearchPaths != null)
+            {
+                foreach (var basePath in _settings.ChromeDriver.SearchPaths)
+                {
+                    _logger.Debug($"搜索路径: {basePath}");
+                    if (Directory.Exists(basePath))
+                    {
+                        var chromePath = Path.Combine(basePath, "chrome.exe");
+                        if (File.Exists(chromePath))
+                        {
+                            _logger.Info($"找到 Chrome 浏览器: {chromePath}");
+                            return chromePath;
+                        }
+                    }
+                }
+            }
+
+            var defaultPaths = new[]
+            {
+                @"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), 
+                            @"Google\Chrome\Application\chrome.exe")
+            };
+
+            foreach (var path in defaultPaths)
+            {
+                _logger.Debug($"检查默认路径: {path}");
+                if (File.Exists(path))
+                {
+                    _logger.Info($"找到 Chrome 浏览器: {path}");
+                    return path;
+                }
+            }
+
+            _logger.Error("未找到 Chrome 浏览器");
+            throw new ChromeException(
+                "未找到 Chrome 浏览器，请确保已安装 Google Chrome",
+                ErrorCodes.CHROME_NOT_FOUND
+            );
+        }
+
+        private string GetChromeVersion()
         {
             try
             {
-                return await Task.Run(() => {
-                    var chromePath = GetChromePath();
-                    var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
-                    return versionInfo.FileVersion ?? string.Empty;
-                });
+                var chromePath = GetChromePath();
+                var versionInfo = FileVersionInfo.GetVersionInfo(chromePath);
+                var version = versionInfo.FileVersion;
+                
+                if (string.IsNullOrEmpty(version))
+                {
+                    throw new ChromeException(
+                        "无法获取 Chrome 版本",
+                        ErrorCodes.CHROME_VERSION_MISMATCH
+                    );
+                }
+
+                return version;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "获取Chrome版本失败");
+                _logger.Error(ex, "获取 Chrome 版本失败");
                 throw new ChromeException(
-                    "无法获取Chrome版本",
+                    "无法获取 Chrome 版",
                     ErrorCodes.CHROME_VERSION_MISMATCH,
                     ex
                 );
@@ -250,9 +200,21 @@ namespace TelegramAutomation.Services
 
         public void Dispose()
         {
-            _driver?.Quit();
-            _driver = null;
-            _isInitialized = false;
+            try
+            {
+                if (_driver != null)
+                {
+                    _driver.Quit();
+                    _driver.Dispose();
+                    _driver = null;
+                }
+                _isInitialized = false;
+                _logger.Info("Chrome 服务已释放");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "释放 Chrome 服务时发生错误");
+            }
         }
     }
 } 
