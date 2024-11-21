@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.9.0</Version>
+    <Version>1.9.1</Version>
     <StartupObject>TelegramAutomation.Program</StartupObject>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
@@ -20,7 +20,7 @@
     </ApplicationDefinition>
   </ItemGroup>
 
-  <!-- XAML 页面和代码隐藏文件 -->
+  <!-- XAML 页面和主题文件 -->
   <ItemGroup>
     <Page Include="Views\MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -29,10 +29,8 @@
     <Page Include="Themes\Default.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Page>
-    <Compile Include="Views\MainWindow.xaml.cs">
-      <DependentUpon>MainWindow.xaml</DependentUpon>
-    </Compile>
   </ItemGroup>
 
   <!-- 源代码文件 -->
