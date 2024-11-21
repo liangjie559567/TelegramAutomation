@@ -14,31 +14,7 @@ namespace TelegramAutomation
         {
             try
             {
-                var logger = LogManager.GetCurrentClassLogger();
-                logger.Info("应用程序启动");
-
-                if (!System.IO.File.Exists("appsettings.json"))
-                {
-                    MessageBox.Show(
-                        "配置文件 appsettings.json 不存在", 
-                        "错误", 
-                        MessageBoxButton.OK, 
-                        MessageBoxImage.Error
-                    );
-                    return;
-                }
-
-                if (!System.IO.File.Exists("nlog.config"))
-                {
-                    MessageBox.Show(
-                        "日志配置文件 nlog.config 不存在", 
-                        "错误", 
-                        MessageBoxButton.OK, 
-                        MessageBoxImage.Error
-                    );
-                    return;
-                }
-
+                ValidateConfigurations();
                 var app = new App();
                 app.Run();
             }
@@ -52,6 +28,19 @@ namespace TelegramAutomation
                     MessageBoxButton.OK, 
                     MessageBoxImage.Error
                 );
+            }
+        }
+
+        private static void ValidateConfigurations()
+        {
+            if (!System.IO.File.Exists("appsettings.json"))
+            {
+                throw new FileNotFoundException("配置文件 appsettings.json 不存在");
+            }
+
+            if (!System.IO.File.Exists("nlog.config"))
+            {
+                throw new FileNotFoundException("日志配置文件 nlog.config 不存在");
             }
         }
     }

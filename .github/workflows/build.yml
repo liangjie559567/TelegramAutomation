@@ -27,15 +27,15 @@ jobs:
         Get-ChildItem -Path . -Recurse | Select-Object FullName
         
     - name: Clean
-      run: dotnet clean TelegramAutomation/TelegramAutomation.csproj
+      run: dotnet clean
         
     - name: Restore dependencies
-      run: dotnet restore TelegramAutomation/TelegramAutomation.csproj
+      run: dotnet restore
       
     - name: Build
       run: |
         echo "Building project..."
-        dotnet build TelegramAutomation/TelegramAutomation.csproj `
+        dotnet build `
           --configuration Release `
           --no-restore `
           --verbosity detailed
@@ -43,7 +43,7 @@ jobs:
     - name: Package
       run: |
         echo "Publishing application..."
-        dotnet publish TelegramAutomation/TelegramAutomation.csproj `
+        dotnet publish `
           -c Release `
           -r win-x64 `
           --self-contained true `
@@ -62,10 +62,10 @@ jobs:
         if (!(Test-Path publish)) {
             throw "Publish directory not found!"
         }
-        Copy-Item TelegramAutomation/appsettings.json publish/
-        Copy-Item TelegramAutomation/nlog.config publish/
-        if (Test-Path TelegramAutomation/selenium-manager) {
-            Copy-Item -Path TelegramAutomation/selenium-manager -Destination publish/selenium-manager -Recurse
+        Copy-Item appsettings.json publish/
+        Copy-Item nlog.config publish/
+        if (Test-Path selenium-manager) {
+            Copy-Item -Path selenium-manager -Destination publish/selenium-manager -Recurse
         }
         Remove-Item publish/*.pdb -Force -ErrorAction SilentlyContinue
         Get-ChildItem -Path publish -Recurse

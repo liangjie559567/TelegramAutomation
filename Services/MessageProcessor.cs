@@ -59,7 +59,7 @@ namespace TelegramAutomation.Services
             catch (Exception ex)
             {
                 _logger.Error(ex, $"处理消息失败: {messageFolder}");
-                progress.Report($"处理消息失败: {ex.Message}");
+                throw;
             }
         }
 
