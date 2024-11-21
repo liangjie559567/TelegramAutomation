@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <VSTestResultsDirectory>$(MSBuildProjectDirectory)/TestResults</VSTestResultsDirectory>
   </PropertyGroup>
 
   <ItemGroup>
