@@ -22,9 +22,9 @@ using MessageBox = System.Windows.MessageBox;
 
 namespace TelegramAutomation.ViewModels
 {
-    public class MainViewModel : ViewModelBase
+    public class MainViewModel : ViewModelBase, IDisposable
     {
-        private readonly ChromeService _chromeService;
+        private readonly ChromeService? _chromeService;
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
         private readonly CancellationTokenSource _cts = new();
         
@@ -32,11 +32,28 @@ namespace TelegramAutomation.ViewModels
         {
             try
             {
-                var settings = LoadAppSettings();
-                _chromeService = new ChromeService(settings);
-                
-                LoginCommand = new RelayCommand(async _ => await ExecuteLoginCommand());
-                InitializeCommands();
+                var settings = LoadAppSettingsFromJson();
+                if (settings != null)
+                {
+                    _chromeService = new ChromeService(settings);
+                    
+                    // 初始化所有命令
+                    LoginCommand = new RelayCommand(async _ => await ExecuteLoginCommand());
+                    StopCommand = new RelayCommand(_ => 
+                    {
+                        _cts.Cancel();
+                        Status = "操作已取消";
+                        StatusColor = System.Windows.Media.Brushes.Orange;
+                    });
+                    RetryCommand = new RelayCommand(async _ => await InitializeAsync());
+                }
+                else
+                {
+                    throw new TelegramAutomationException(
+                        "无法加载应用程序配置",
+                        ErrorCodes.CONFIG_ERROR
+                    );
+                }
             }
             catch (Exception ex)
             {
@@ -52,22 +69,73 @@ namespace TelegramAutomation.ViewModels
             }
         }
 
-        private void InitializeCommands()
+        private AppSettings? LoadAppSettingsFromJson()
         {
-            StopCommand = new RelayCommand(_ => 
+            try
             {
-                _cts.Cancel();
-                Status = "操作已取消";
-                StatusColor = System.Windows.Media.Brushes.Orange;
-            });
+                var config = new ConfigurationBuilder()
+                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                    .Build();
 
-            RetryCommand = new RelayCommand(async _ => await InitializeAsync());
+                var settings = config.Get<AppSettings>();
+                if (settings == null)
+                {
+                    throw new TelegramAutomationException(
+                        "无法加载应用程序配置",
+                        ErrorCodes.CONFIG_ERROR
+                    );
+                }
+
+                return settings;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "加载配置文件失败");
+                throw new TelegramAutomationException(
+                    "加载配置文件失败",
+                    ErrorCodes.CONFIG_ERROR,
+                    ex
+                );
+            }
+        }
+
+        private async Task CheckNetworkStatusAsync()
+        {
+            try
+            {
+                using var client = new HttpClient();
+                var response = await client.GetAsync("https://www.google.com");
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new TelegramAutomationException(
+                        "网络连接异常",
+                        ErrorCodes.NETWORK_ERROR
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new TelegramAutomationException(
+                    "网络连接失败，请检查网络设置",
+                    ErrorCodes.NETWORK_ERROR,
+                    ex
+                );
+            }
         }
 
         private async Task ExecuteLoginCommand()
         {
             try
             {
+                if (_chromeService == null)
+                {
+                    throw new TelegramAutomationException(
+                        "Chrome服务未初始化",
+                        ErrorCodes.INITIALIZATION_ERROR
+                    );
+                }
+
                 IsLoading = true;
                 Status = "正在初始化Chrome...";
 
@@ -148,9 +216,9 @@ namespace TelegramAutomation.ViewModels
         }
 
         // 属性定义
-        public ICommand LoginCommand { get; }
-        public ICommand StopCommand { get; private set; }
-        public ICommand RetryCommand { get; private set; }
+        public ICommand? LoginCommand { get; private set; }
+        public ICommand? StopCommand { get; private set; }
+        public ICommand? RetryCommand { get; private set; }
 
         private bool _isLoading;
         public bool IsLoading
