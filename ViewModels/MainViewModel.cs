@@ -26,40 +26,42 @@ namespace TelegramAutomation.ViewModels
     {
         private readonly ChromeService _chromeService;
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
+        private readonly CancellationTokenSource _cts = new();
         
         public MainViewModel()
         {
-            var settings = LoadAppSettings();
-            _chromeService = new ChromeService(settings);
-            InitializeCommands();
-        }
-
-        private AppSettings LoadAppSettings()
-        {
             try
             {
-                // 加载配置文件
-                var config = new ConfigurationBuilder()
-                    .SetBasePath(Directory.GetCurrentDirectory())
-                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                    .Build();
-
-                var settings = config.Get<AppSettings>();
-                if (settings == null)
-                    throw new Exception("无法加载应用程序配置");
-
-                return settings;
+                var settings = LoadAppSettings();
+                _chromeService = new ChromeService(settings);
+                
+                LoginCommand = new RelayCommand(async _ => await ExecuteLoginCommand());
+                InitializeCommands();
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "加载配置文件失败");
-                throw;
+                _logger.LogException(ex, "MainViewModel 初始化失败");
+                Status = "初始化失败: " + ex.Message;
+                StatusColor = System.Windows.Media.Brushes.Red;
+                MessageBox.Show(
+                    ex.Message,
+                    "初始化错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
             }
         }
 
         private void InitializeCommands()
         {
-            LoginCommand = new RelayCommand(async _ => await ExecuteLoginCommand());
+            StopCommand = new RelayCommand(_ => 
+            {
+                _cts.Cancel();
+                Status = "操作已取消";
+                StatusColor = System.Windows.Media.Brushes.Orange;
+            });
+
+            RetryCommand = new RelayCommand(async _ => await InitializeAsync());
         }
 
         private async Task ExecuteLoginCommand()
@@ -68,6 +70,9 @@ namespace TelegramAutomation.ViewModels
             {
                 IsLoading = true;
                 Status = "正在初始化Chrome...";
+
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+                cts.CancelAfter(TimeSpan.FromMinutes(2)); // 2分钟超时
 
                 // 验证Chrome环境
                 if (!_chromeService.ValidateChromeEnvironment())
@@ -82,12 +87,19 @@ namespace TelegramAutomation.ViewModels
                 await _chromeService.InitializeAsync();
                 
                 Status = "登录成功";
+                StatusColor = System.Windows.Media.Brushes.Green;
                 IsLoggedIn = true;
+            }
+            catch (OperationCanceledException)
+            {
+                Status = "操作已取消";
+                StatusColor = System.Windows.Media.Brushes.Orange;
             }
             catch (Exception ex)
             {
                 _logger.LogException(ex, "登录失败");
                 Status = $"登录失败: {ex.Message}";
+                StatusColor = System.Windows.Media.Brushes.Red;
                 MessageBox.Show(
                     ex.Message,
                     "登录错误",
@@ -111,15 +123,6 @@ namespace TelegramAutomation.ViewModels
                 // 检查网络状态
                 await CheckNetworkStatusAsync();
 
-                // 初始化 Chrome 服务
-                if (!_chromeService.ValidateChromeEnvironment())
-                {
-                    throw new ChromeException(
-                        "Chrome环境验证失败",
-                        ErrorCodes.CHROME_ENVIRONMENT_ERROR
-                    );
-                }
-
                 Status = "初始化完成";
                 StatusColor = System.Windows.Media.Brushes.Green;
             }
@@ -137,28 +140,18 @@ namespace TelegramAutomation.ViewModels
             }
         }
 
-        private async Task CheckNetworkStatusAsync()
+        public void Dispose()
         {
-            try
-            {
-                using var client = new HttpClient();
-                var response = await client.GetAsync("https://www.google.com");
-                if (!response.IsSuccessStatusCode)
-                {
-                    throw new Exception("网络连接异常");
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new TelegramAutomationException(
-                    "网络连接失败，请检查网络设置",
-                    ErrorCodes.NETWORK_ERROR,
-                    ex
-                );
-            }
+            _cts.Cancel();
+            _cts.Dispose();
+            _chromeService?.Dispose();
         }
 
         // 属性定义
+        public ICommand LoginCommand { get; }
+        public ICommand StopCommand { get; private set; }
+        public ICommand RetryCommand { get; private set; }
+
         private bool _isLoading;
         public bool IsLoading
         {
@@ -186,7 +179,5 @@ namespace TelegramAutomation.ViewModels
             get => _isLoggedIn;
             set => SetProperty(ref _isLoggedIn, value);
         }
-
-        public required ICommand LoginCommand { get; init; }
     }
 }
