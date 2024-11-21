@@ -1,4 +1,4 @@
-name: Build and Test
+name: Build and Package
 
 on:
   push:
@@ -28,4 +28,18 @@ jobs:
       run: dotnet restore
       
     - name: Build
-      run: dotnet build --configuration Release
+      run: dotnet build --configuration Release --no-restore
+      
+    - name: Package
+      run: dotnet publish TelegramAutomation/TelegramAutomation.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          TelegramAutomation/bin/Release/net8.0-windows/win-x64/publish/TelegramAutomation.exe
+          TelegramAutomation/appsettings.json
+          TelegramAutomation/nlog.config
+        draft: false
+        prerelease: false
