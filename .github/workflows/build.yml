@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and Test
 
 on:
   push:
@@ -31,12 +31,15 @@ jobs:
       run: dotnet build --configuration Release --no-restore
       
     - name: Test with coverage
-      run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+      run: |
+        dotnet add package coverlet.msbuild
+        dotnet test --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:CoverletOutput=./coverage/coverage.xml
       
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
-        directory: ./coverage
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage/coverage.xml
         fail_ci_if_error: true
         
     - name: Prepare Release Files
