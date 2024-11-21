@@ -22,8 +22,9 @@ jobs:
         dotnet-version: 8.0.x
         
     - name: List Directory
+      shell: pwsh
       run: |
-        dir /s /b
+        Get-ChildItem -Path . -Recurse | Select-Object FullName
         
     - name: Clean
       run: dotnet clean
