@@ -27,15 +27,15 @@ jobs:
         Get-ChildItem -Path . -Recurse | Select-Object FullName
         
     - name: Clean
-      run: dotnet clean
+      run: dotnet clean TelegramAutomation/TelegramAutomation.csproj
         
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore TelegramAutomation/TelegramAutomation.csproj
       
     - name: Build
       run: |
-        echo "Building solution..."
-        dotnet build `
+        echo "Building project..."
+        dotnet build TelegramAutomation/TelegramAutomation.csproj `
           --configuration Release `
           --no-restore `
           --verbosity detailed
@@ -43,7 +43,7 @@ jobs:
     - name: Package
       run: |
         echo "Publishing application..."
-        dotnet publish `
+        dotnet publish TelegramAutomation/TelegramAutomation.csproj `
           -c Release `
           -r win-x64 `
           --self-contained true `
@@ -52,7 +52,7 @@ jobs:
           /p:EnableCompressionInSingleFile=true `
           /p:DebugType=None `
           /p:DebugSymbols=false `
-          -o publish `
+          -o ./publish `
           --verbosity detailed
 
     - name: Create Archive
@@ -62,12 +62,14 @@ jobs:
         if (!(Test-Path publish)) {
             throw "Publish directory not found!"
         }
-        Copy-Item appsettings.json publish/
-        Copy-Item nlog.config publish/
-        Copy-Item -Path selenium-manager -Destination publish/selenium-manager -Recurse -ErrorAction SilentlyContinue
+        Copy-Item TelegramAutomation/appsettings.json publish/
+        Copy-Item TelegramAutomation/nlog.config publish/
+        if (Test-Path TelegramAutomation/selenium-manager) {
+            Copy-Item -Path TelegramAutomation/selenium-manager -Destination publish/selenium-manager -Recurse
+        }
         Remove-Item publish/*.pdb -Force -ErrorAction SilentlyContinue
         Get-ChildItem -Path publish -Recurse
-        Compress-Archive -Path publish/* -DestinationPath TelegramAutomation.zip -Verbose
+        Compress-Archive -Path publish/* -DestinationPath TelegramAutomation.zip -Force -Verbose
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
