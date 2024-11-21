@@ -19,6 +19,7 @@ using System.Net.Http;
 using System.ComponentModel;
 using Microsoft.Extensions.Configuration;
 using System.Windows;
+using TelegramAutomation.Views;
 using MessageBox = System.Windows.MessageBox;
 
 namespace TelegramAutomation.ViewModels
