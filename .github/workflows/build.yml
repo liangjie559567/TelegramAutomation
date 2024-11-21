@@ -22,20 +22,29 @@ jobs:
         dotnet-version: 8.0.x
         
     - name: Clean
-      run: dotnet clean && dotnet nuget locals all --clear
+      run: dotnet clean
         
     - name: Restore dependencies
-      run: dotnet restore
+      run: |
+        dotnet restore TelegramAutomation.sln
+        dotnet restore TelegramAutomation.Tests/TelegramAutomation.Tests.csproj
       
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build --configuration Release
       
     - name: Test with coverage
-      run: dotnet test --configuration Release --no-build --verbosity normal
+      run: |
+        dotnet test TelegramAutomation.Tests/TelegramAutomation.Tests.csproj `
+          --configuration Release `
+          --no-build `
+          --verbosity normal `
+          /p:CollectCoverage=true `
+          /p:CoverletOutput=./TestResults/ `
+          /p:CoverletOutputFormat=cobertura
       
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./TelegramAutomation.Tests/coverage.cobertura.xml
+        files: ./TelegramAutomation.Tests/TestResults/coverage.cobertura.xml
         fail_ci_if_error: true
