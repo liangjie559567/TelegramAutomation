@@ -32,8 +32,7 @@ jobs:
       
     - name: Package
       run: |
-        dir
-        dotnet publish ./TelegramAutomation/TelegramAutomation.csproj `
+        dotnet publish TelegramAutomation.csproj `
           -c Release `
           -r win-x64 `
           --self-contained true `
@@ -46,8 +45,8 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          ./TelegramAutomation/bin/Release/net8.0-windows/win-x64/publish/TelegramAutomation.exe
-          ./TelegramAutomation/appsettings.json
-          ./TelegramAutomation/nlog.config
+          bin/Release/net8.0-windows/win-x64/publish/TelegramAutomation.exe
+          appsettings.json
+          nlog.config
         draft: false
         prerelease: false
