@@ -24,6 +24,7 @@ namespace TelegramAutomation.Services
         private readonly AppSettings _settings;
         private readonly string[] _searchPaths;
         private const string MINIMUM_CHROME_VERSION = "131.0.6778.86";
+        private bool _disposed;
 
         public bool IsInitialized => _isInitialized;
 
@@ -304,9 +305,21 @@ namespace TelegramAutomation.Services
 
         public void Dispose()
         {
-            _driver?.Quit();
-            _driver = null;
-            _isInitialized = false;
+            if (_disposed) return;
+            
+            try
+            {
+                _driver?.Quit();
+                _driver?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "释放 Chrome 驱动资源时发生错误");
+            }
+            finally
+            {
+                _disposed = true;
+            }
         }
 
         public async Task RequestVerificationCode(string phoneNumber)
@@ -377,5 +390,4 @@ namespace TelegramAutomation.Services
             }
         }
     }
-} 
 } 
