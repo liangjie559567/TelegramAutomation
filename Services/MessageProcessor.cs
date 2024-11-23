@@ -82,59 +82,47 @@ namespace TelegramAutomation.Services
         {
             try
             {
-                // 1. 移除所有 URL（包括 Fab.com）
-                var urlPatterns = new[]
-                {
-                    @"(http|https):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&amp;:/~\+#]*[\w\-\@?^=%&amp;/~\+#])?",
+                // 1. 移除 URL
+                var urlPatterns = new[] {
+                    @"(http|https):\/\/[\w\-_]+(\.[\w\-_]+)+",
                     @"Fab\.com",
                     @"www\.\w+\.\w+"
+                };
+                
+                // 2. 移除标签
+                var hashtagPattern = @"#\w+";
+                
+                // 3. 移除版本号
+                var versionPatterns = new[] {
+                    @"v\d+(\.\d+)*",
+                    @"UE\d+(\.\d+)*",
+                    @"version\s+\d+(\.\d+)*"
+                };
+                
+                // 4. 移除无用文本
+                var removeTexts = new[] {
+                    "NEW", "OVERVIEW", "VIDEO",
+                    "also", "Tutorial", "Download"
                 };
                 
                 foreach (var pattern in urlPatterns)
                 {
                     line = Regex.Replace(line, pattern, string.Empty, RegexOptions.IgnoreCase);
                 }
-
-                // 2. 移除标签 (#xxx)
-                var hashtagPattern = @"#\w+";
-                line = Regex.Replace(line, hashtagPattern, string.Empty);
-
-                // 3. 移除版本号相关文本
-                var versionPatterns = new[]
-                {
-                    @"v\d+(\.\d+)*",  // 常规版本号 (v1.0.0)
-                    @"UE\d+(\.\d+)*", // UE版本号
-                    @"version\s+\d+(\.\d+)*",  // "version" 文本
-                    @"\[\s*v\d+(\.\d+)*\s*\]"  // 方括号中的版本号
-                };
+                
+                line = Regex.Replace(line, hashtagPattern, string.Empty, RegexOptions.IgnoreCase);
                 
                 foreach (var pattern in versionPatterns)
                 {
                     line = Regex.Replace(line, pattern, string.Empty);
                 }
-
-                // 4. 移除多余空格和特殊字符
-                line = Regex.Replace(line.Trim(), @"\s+", " ");  // 合并多个空格
-                line = Regex.Replace(line, @"[\[\]\(\)]", string.Empty);  // 移除括号
-                line = Regex.Replace(line, @"^\s*[-–—]\s*", string.Empty);  // 移除行首的破折号
-                
-                // 5. 移除常见的无用文本
-                var removeTexts = new[]
-                {
-                    "NEW",
-                    "OVERVIEW",
-                    "VIDEO",
-                    "also",
-                    "Tutorial",
-                    "Download"
-                };
                 
                 foreach (var text in removeTexts)
                 {
                     line = Regex.Replace(line, $@"\b{text}\b", string.Empty, RegexOptions.IgnoreCase);
                 }
 
-                // 6. 清理结果
+                // 5. 清理结果
                 line = line.Trim();
                 line = Regex.Replace(line, @"\s+", " ");  // 再次合并空格
                 line = Regex.Replace(line, @"^[-–—]\s*", string.Empty);  // 再次清理行首
@@ -151,87 +139,19 @@ namespace TelegramAutomation.Services
 
         public MessageContent ProcessMessage(IWebElement messageElement)
         {
-            try
-            {
-                _logger.Debug("开始处理新消息...");
-                _logger.Debug($"消息元素 HTML: {messageElement.GetAttribute("outerHTML")}");
-                
-                var content = new MessageContent
-                {
-                    Id = Guid.NewGuid().ToString()
-                };
-
-                // 1. 尝试获取前一个相关消息的内容
-                var previousMessage = messageElement.FindElements(By.XPath("./preceding-sibling::div[@class='message'][1]"));
-                if (previousMessage.Any())
-                {
-                    var prevMessageText = previousMessage.First().FindElements(By.CssSelector("span.translatable-message"));
-                    if (prevMessageText.Any())
-                    {
-                        var (title, text) = ExtractTitleAndContent(previousMessage.First());
-                        content.Text = string.IsNullOrEmpty(text) ? title : $"{title}\n{text}";
-                        content.Links = ExtractLinks(previousMessage.First());
-                    }
-                }
-                else
-                {
-                    // 2. 从当前消息提取内容
-                    var (title, text) = ExtractTitleAndContent(messageElement);
-                    content.Text = string.IsNullOrEmpty(text) ? title : $"{title}\n{text}";
-                    content.Links = ExtractLinks(messageElement);
-                }
-
-                // 3. 提取文件
-                content.Files = ExtractFiles(messageElement);
-
-                // 4. 如果当前消息没有内容但有文件，尝试从文件名生成标题
-                if (string.IsNullOrWhiteSpace(content.Text) && content.Files.Any())
-                {
-                    var firstFile = content.Files.First();
-                    var fileName = firstFile.Name;
-                    var title = fileName.Split(new[] { "UE", "v", "_v", "." }, StringSplitOptions.RemoveEmptyEntries)[0]
-                                      .Replace("_", " ")
-                                      .Trim();
-                    content.Text = title;
-                }
-
-                // 5. 记录处理结果
-                var preview = new StringBuilder();
-                preview.AppendLine($"处理消息 ID: {content.Id}");
-                preview.AppendLine($"标题：{content.Text?.Split('\n').FirstOrDefault()}");
-                preview.AppendLine("内容：");
-                var contentLines = content.Text?.Split('\n').Skip(1).Where(l => !string.IsNullOrWhiteSpace(l));
-                if (contentLines?.Any() == true)
-                {
-                    preview.AppendLine(string.Join("\n", contentLines));
-                }
-                
-                if (content.Files.Any())
-                {
-                    preview.AppendLine("文件:");
-                    foreach (var file in content.Files)
-                    {
-                        preview.AppendLine($"{file.Name} ({file.Size})");
-                    }
-                }
-
-                if (content.Links.Any())
-                {
-                    preview.AppendLine("链接:");
-                    foreach (var link in content.Links)
-                    {
-                        preview.AppendLine(link);
-                    }
-                }
-                
-                _logger.Debug(preview.ToString());
-                return content;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "处理消息时出错");
-                return new MessageContent { Id = Guid.NewGuid().ToString() };
-            }
+            var content = new MessageContent { Id = Guid.NewGuid().ToString() };
+            
+            // 1. 提取文本内容
+            var (title, text) = ExtractTitleAndContent(messageElement);
+            content.Text = string.IsNullOrEmpty(text) ? title : $"{title}\n{text}";
+            
+            // 2. 提取文件
+            content.Files = ExtractFiles(messageElement);
+            
+            // 3. 提取链接
+            content.Links = ExtractLinks(messageElement);
+            
+            return content;
         }
 
         public bool ValidateMessageContent(MessageContent content)

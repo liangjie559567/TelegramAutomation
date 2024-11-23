@@ -249,72 +249,76 @@ namespace TelegramAutomation.Services
             {
                 // 1. 等待消息容器加载
                 var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(10));
-                var messageContainer = wait.Until(d => d.FindElement(By.CssSelector(".bubbles")));
+                var messageContainer = await Task.Run(() => wait.Until(d => d.FindElement(By.CssSelector(".bubbles"))));
                 _logger.Debug("找到消息容器");
 
-                // 2. 获取所有可见消息
-                var allMessages = _driver.FindElements(By.CssSelector(".message"))
-                    .OrderByDescending(m => m.Location.Y)
-                    .ToList();
+                // 2. 获取所有可见消息并按位置排序
+                var allMessages = await Task.Run(() => 
+                    _driver.FindElements(By.CssSelector(".message"))
+                        .OrderByDescending(m => m.Location.Y)
+                        .ToList()
+                );
                 
                 _logger.Debug($"找到 {allMessages.Count} 条可见消息");
 
-                // 3. 处理消息组
+                // 3. 智能消息分组处理
                 for (int i = 0; i < allMessages.Count && messages.Count < maxMessages;)
                 {
-                    try
+                    var currentMessage = allMessages[i];
+                    var hasText = await Task.Run(() => currentMessage.FindElements(By.CssSelector(
+                        "span.translatable-message, div.message-content span.text-content"
+                    )).Any());
+                    
+                    if (hasText)
                     {
-                        var currentMessage = allMessages[i];
-                        await WaitForMessageLoad(currentMessage);
-
-                        // 检查是否是文本消息
-                        var hasText = currentMessage.FindElements(By.CssSelector("span.translatable-message")).Any();
+                        // 收集相关消息组
+                        var messageGroup = new List<IWebElement> { currentMessage };
+                        int j = i - 1;
                         
-                        if (hasText)
+                        while (j >= 0)
                         {
-                            // 收集当前文本消息和它下面的所有文件消息
-                            var messageGroup = new List<IWebElement> { currentMessage };
-                            int j = i + 1;
+                            var prevMessage = allMessages[j];
                             
-                            // 继续查找直到遇到下一个文本消息或到达列表末尾
-                            while (j < allMessages.Count)
+                            // 1. 检查是否为文本消息
+                            var prevHasText = await Task.Run(() => prevMessage.FindElements(By.CssSelector(
+                                "span.translatable-message, div.message-content span.text-content"
+                            )).Any());
+                            
+                            if (prevHasText)
                             {
-                                var nextMessage = allMessages[j];
-                                var nextHasText = nextMessage.FindElements(By.CssSelector("span.translatable-message")).Any();
-                                
-                                if (nextHasText)
-                                {
-                                    break; // 遇到下一个文本消息，停止收集
-                                }
-                                
-                                messageGroup.Add(nextMessage);
-                                j++;
+                                break;
                             }
-
-                            // 处理整个消息组
-                            var content = ProcessMessageGroup(messageGroup);
-                            if (content != null && !string.IsNullOrWhiteSpace(content.Text))
+                            
+                            // 2. 检查是否为文件消息
+                            var isFileMessage = await Task.Run(() => prevMessage.FindElements(By.CssSelector(
+                                ".document-container, .media-container, .media-photo-container"
+                            )).Any());
+                            
+                            if (isFileMessage)
                             {
-                                messages.Add(content);
-                                progress.Report($"已加载消息数量: {messages.Count}");
-                                _logger.Info($"已加载消息数量: {messages.Count}");
+                                messageGroup.Add(prevMessage);
                             }
-
-                            i = j; // 跳到下一个文本消息的位置
+                            
+                            j--;
                         }
-                        else
+
+                        // 处理整个消息组
+                        var content = await Task.Run(() => ProcessMessageGroup(messageGroup));
+                        if (content != null && !string.IsNullOrWhiteSpace(content.Text))
                         {
-                            i++; // 如果当前不是文本消息，继续下一个
+                            messages.Add(content);
+                            progress.Report($"已加载消息数量: {messages.Count}");
+                            _logger.Info($"已加载消息数量: {messages.Count}");
                         }
+
+                        i++;
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        _logger.Error(ex, "处理消息组时出错");
-                        i++; // 发生错误时继续处理下一条消息
+                        i++;
                     }
                 }
 
-                LogMessages(messages);
                 return messages;
             }
             catch (Exception ex)
@@ -324,21 +328,23 @@ namespace TelegramAutomation.Services
             }
         }
 
-        private bool IsRelatedMessage(IWebElement textMessage, IWebElement fileMessage)
+        private async Task<bool> IsRelatedMessage(IWebElement message1, IWebElement message2)
         {
             try
             {
-                // 检查时间戳是否接近
-                var textTime = GetMessageTimestamp(textMessage);
-                var fileTime = GetMessageTimestamp(fileMessage);
-                
-                if (textTime.HasValue && fileTime.HasValue)
+                // 使用 Task.Run 包装同步操作
+                return await Task.Run(() => 
                 {
-                    // 如果时间差在30秒内，认为是相关消息
-                    return Math.Abs((textTime.Value - fileTime.Value).TotalSeconds) <= 30;
-                }
-                
-                return false;
+                    var time1 = GetMessageTimestamp(message1);
+                    var time2 = GetMessageTimestamp(message2);
+                    
+                    if (time1.HasValue && time2.HasValue)
+                    {
+                        return Math.Abs((time1.Value - time2.Value).TotalSeconds) <= 5;
+                    }
+                    
+                    return false;
+                });
             }
             catch (Exception ex)
             {
@@ -393,7 +399,7 @@ namespace TelegramAutomation.Services
 
         private void LogMessages(List<MessageContent> messages)
         {
-            _logger.Info($"\n找到以下消息：\n----------------------------------------");
+            _logger.Info($"\n到以下消息\n----------------------------------------");
             foreach (var msg in messages)
             {
                 _logger.Debug($"消息 ID: {msg.Id}");
@@ -517,35 +523,58 @@ namespace TelegramAutomation.Services
             }
         }
 
-        private bool IsElementVisible(IWebElement element)
+        private async Task<bool> IsElementVisible(IWebElement element)
         {
-            return _scrollHelper.IsElementInViewport(element);
+            try
+            {
+                return await Task.Run(() => 
+                {
+                    try
+                    {
+                        return _scrollHelper.IsElementInViewport(element);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "查元素可见性时出错");
+                        return false;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "执行元素可见性检查时出错");
+                return false;
+            }
         }
 
         private async Task ProcessMessageElement(IWebElement messageElement)
         {
             try
             {
-                _logger.Debug($"正在处理消息元素: {messageElement.GetAttribute("outerHTML")}");
+                // 使用 Task.Run 包装同步操作
+                var htmlContent = await Task.Run(() => messageElement.GetAttribute("outerHTML"));
+                _logger.Debug($"正在处理消息元素: {htmlContent}");
                 
                 // 1. 等待消息元素完全加载
                 await WaitForMessageLoad(messageElement);
                 
                 // 2. 处理消息内容
-                var content = _messageProcessor.ProcessMessage(messageElement);
+                var content = await Task.Run(() => _messageProcessor.ProcessMessage(messageElement));
                 
                 // 3. 验证消息内容
-                if (!_messageProcessor.ValidateMessageContent(content))
+                var isValid = await Task.Run(() => _messageProcessor.ValidateMessageContent(content));
+                if (!isValid)
                 {
                     _logger.Debug("消息验证失败，跳过处理");
                     return;
                 }
 
                 // 4. 记录消息信息
-                _messages.Add(content);
-                
-                _logger.Debug($"处理新消息 ID: {content.Id}");
-                _logger.Debug($"消息内容: {content.Text}");
+                await Task.Run(() => {
+                    _messages.Add(content);
+                    _logger.Debug($"处理新消息 ID: {content.Id}");
+                    _logger.Debug($"消息内容: {content.Text}");
+                });
             }
             catch (Exception ex)
             {
@@ -558,8 +587,12 @@ namespace TelegramAutomation.Services
             try
             {
                 var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(10));
-                await Task.Run(() => {
-                    wait.Until(d => {
+                
+                // 使用 await Task.Run 来执行同步的 wait.Until
+                await Task.Run(() => 
+                {
+                    wait.Until(d => 
+                    {
                         try
                         {
                             // 检查消息是否完全加载
@@ -587,6 +620,7 @@ namespace TelegramAutomation.Services
             catch (Exception ex)
             {
                 _logger.Error(ex, "等待消息加载超时");
+                throw;
             }
         }
     }
