@@ -15,10 +15,12 @@ using TelegramAutomation.Exceptions;
 using System.Threading;
 using OpenQA.Selenium.Support.UI;
 using TelegramAutomation.ViewModels;
+using TelegramAutomation.Services;
+using System.Collections.Generic;
 
 namespace TelegramAutomation.Services
 {
-    public class ChromeService : IDisposable
+    public class ChromeService : IDisposable, IAsyncDisposable
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
         private readonly AppSettings _settings;
@@ -43,81 +45,152 @@ namespace TelegramAutomation.Services
 
                 _logger.Info("正在初始化 Chrome 服务...");
                 
-                var options = new ChromeOptions();
-                options.AddArgument("--no-sandbox");
-                options.AddArgument("--disable-dev-shm-usage");
-                options.AddArgument("--disable-gpu");
-                options.AddArgument("--disable-extensions");
-                options.AddArgument("--start-maximized");
-                options.AddArgument("--disable-blink-features=AutomationControlled");
-                options.AddArgument("--disable-web-security");
-                options.AddArgument("--disable-features=IsolateOrigins,site-per-process");
+                var options = CreateChromeOptions();
                 
-                // 设置 user-agent
-                options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
-
-                options.AddArgument("--disable-notifications");
-                options.AddArgument("--disable-popup-blocking");
-                options.AddArgument("--disable-infobars");
-                options.AddArgument("--ignore-certificate-errors");
-
                 _driver = new ChromeDriver(options);
                 _driver.Manage().Window.Maximize();
                 _driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(30);
                 _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(0);
                 
-                // 使用 /k/ 版本的 Telegram Web
                 _logger.Info("正在访问 Telegram Web...");
                 _driver.Navigate().GoToUrl("https://web.telegram.org/k/");
                 await Task.Delay(8000);
 
-                try
+                // 检查是否需要登录
+                while (NeedsLogin())
                 {
+                    _logger.Info("需要登录，开始登录流程...");
                     var loginViewModel = new LoginViewModel(_driver);
                     
-                    // 1. 点击登录按钮
-                    await loginViewModel.ClickLoginButton();
-                    await Task.Delay(2000);
-
-                    // 2. 输入手机号
-                    await loginViewModel.EnterPhoneNumber("+18479005288");
-                    await Task.Delay(2000);
-
-                    // 3. 等待用户输入验证码
-                    var verificationCode = await loginViewModel.WaitForVerificationCode();
-                    
-                    // 4. 输入验证码
-                    await loginViewModel.EnterVerificationCode(verificationCode);
-                    await Task.Delay(5000); // 等待登录完成
-
-                    // 5. 切换到指定频道
-                    Console.WriteLine("\n请输入要访问的频道名称: ");
-                    var channelName = Console.ReadLine()?.Trim();
-                    if (!string.IsNullOrEmpty(channelName))
+                    try
                     {
-                        await loginViewModel.NavigateToChannel(channelName);
+                        // 1. 点击登录按钮
+                        await loginViewModel.ClickLoginButton();
+                        await Task.Delay(2000);
+
+                        // 2. 输入手机号
+                        await loginViewModel.EnterPhoneNumber("+8619122903869");
+                        await Task.Delay(2000);
+
+                        bool loginSuccess = false;
+                        while (!loginSuccess)
+                        {
+                            try
+                            {
+                                // 3. 等待用户输入验证码
+                                var verificationCode = await loginViewModel.WaitForVerificationCode();
+                                
+                                // 4. 输入验证码
+                                await loginViewModel.EnterVerificationCode(verificationCode);
+                                await Task.Delay(5000); // 等待登录完成
+                                
+                                loginSuccess = true;
+                            }
+                            catch (ChromeException ex) when (ex.ErrorCode == ErrorCodes.LOGIN_FAILED)
+                            {
+                                _logger.Error($"验证码错误或登录失败: {ex.Message}");
+                                Console.WriteLine("验证码错误或登录失败，请重试");
+                                // 继续循环，重新输入验证码
+                            }
+                        }
                     }
-                    
-                    _isInitialized = true;
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "登录过程出错");
+                        throw;
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "登录操作失败");
-                    throw new ChromeException(
-                        "登录操作失败: " + ex.Message,
-                        ErrorCodes.LOGIN_FAILED,
-                        ex
-                    );
-                }
+
+                _logger.Info("已经登录，无需重新登录");
+                _isInitialized = true;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Chrome 初始化失败");
-                throw new ChromeException(
-                    $"Chrome 初始化失败: {ex.Message}",
-                    ErrorCodes.INITIALIZATION_ERROR,
-                    ex
-                );
+                _logger.Error(ex, "初始化 Chrome 服务时出错");
+                throw;
+            }
+        }
+
+        private ChromeOptions CreateChromeOptions()
+        {
+            var options = new ChromeOptions();
+            options.AddArguments(
+                "--disable-gpu",
+                "--disable-software-rasterizer",
+                "--log-level=3",  // 只显示致命错误
+                "--silent",
+                "--disable-logging",
+                "--disable-dev-shm-usage"
+            );
+
+            // 设置用户数据目录，保存登录状态
+            var userDataDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "TelegramAutomation",
+                "ChromeProfile"
+            );
+            Directory.CreateDirectory(userDataDir);
+            options.AddArgument($"--user-data-dir={userDataDir}");
+
+            // 设置下载路径
+            var downloadPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Downloads"  // 使用系统默认下载路径
+            );
+
+            var prefs = new Dictionary<string, object>
+            {
+                { "download.default_directory", downloadPath },
+                { "download.prompt_for_download", false },
+                { "download.directory_upgrade", true },
+                { "safebrowsing.enabled", true }
+            };
+            options.AddUserProfilePreference("download", prefs);
+
+            return options;
+        }
+
+        private bool NeedsLogin()
+        {
+            try
+            {
+                if (_driver == null)
+                {
+                    _logger.Error("Chrome driver 未初始化");
+                    return true;
+                }
+
+                // 等待页面加载
+                Thread.Sleep(3000);
+
+                // 检查是否已经登录（在聊天界面）
+                var chatElements = _driver.FindElements(By.CssSelector(
+                    ".chat-list, .dialogs-container, .messages-container, " +
+                    ".sidebar-header, .chat-background, .new-message-button"
+                ));
+
+                if (chatElements.Any(e => e.Displayed))
+                {
+                    _logger.Info("检测到聊天界面，已经登录");
+                    return false;
+                }
+
+                // 如果没有检测到聊天界面，再检查登录相关元素
+                var loginElements = _driver.FindElements(By.XPath(
+                    "//*[contains(text(), 'Log in to Telegram by QR Code')] | " +
+                    "//*[contains(text(), 'Sign in to Telegram')] | " +
+                    "//*[contains(text(), 'LOG IN BY PHONE NUMBER')] | " +
+                    "//input[@type='tel']"
+                ));
+
+                var needsLogin = loginElements.Any(e => e.Displayed);
+                _logger.Info(needsLogin ? "需要登录" : "无需登录");
+                return needsLogin;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "检查登录状态时出错");
+                return true;
             }
         }
 
@@ -214,6 +287,75 @@ namespace TelegramAutomation.Services
             catch (Exception ex)
             {
                 _logger.Error(ex, "释放 Chrome 服务时发生错误");
+            }
+        }
+
+        public async Task StartDownloadingAsync(string channelName)
+        {
+            try
+            {
+                if (_driver == null)
+                {
+                    throw new ChromeException("Chrome driver 未初始化", ErrorCodes.INITIALIZATION_ERROR);
+                }
+
+                var savePath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "TelegramDownloads",
+                    channelName.Replace("@", "").Replace("/", "_")
+                );
+
+                // 创建下载配置
+                var downloadConfig = new DownloadConfiguration
+                {
+                    MaxConcurrentDownloads = 3,
+                    SaveMessageText = true,
+                    SaveLinks = true,
+                    SupportedFileExtensions = new[]
+                    {
+                        ".zip", ".rar", ".7z", ".tar", ".gz",
+                        ".mp4", ".avi", ".mkv", ".mov",
+                        ".jpg", ".jpeg", ".png", ".gif",
+                        ".pdf", ".doc", ".docx", ".xls", ".xlsx"
+                    }
+                };
+
+                var progress = new Progress<string>(message => _logger.Info(message));
+                var downloadService = new DownloadService(_driver, savePath, downloadConfig);
+                _logger.Info($"开始下载频道内容到: {savePath}");
+                
+                await downloadService.ProcessChannelMessages(
+                    channelName,
+                    progress,
+                    CancellationToken.None
+                );
+                
+                _logger.Info("频道内容下载完成");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "下载频道内容时出错");
+                throw;
+            }
+        }
+
+        public async Task NavigateToChannel(string channelName)
+        {
+            if (_driver == null)
+            {
+                throw new ChromeException("Chrome driver 未初始化", ErrorCodes.INITIALIZATION_ERROR);
+            }
+
+            var loginViewModel = new LoginViewModel(_driver);
+            await loginViewModel.NavigateToChannel(channelName);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if(_driver != null)
+            {
+                await Task.Run(() => _driver.Quit());
+                _driver.Dispose();
             }
         }
     }

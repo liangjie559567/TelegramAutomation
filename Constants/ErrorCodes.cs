@@ -18,11 +18,12 @@ namespace TelegramAutomation.Constants
         public const string TIMEOUT_ERROR = "TIMEOUT_ERROR";
         public const string CONNECTION_ERROR = "CONNECTION_ERROR";
 
-        // 其他错误
-        public const string UNKNOWN_ERROR = "UNKNOWN_ERROR";
-
-        // 频道相关错误
+        // 导航相关错误
+        public const string NAVIGATION_ERROR = "NAVIGATION_ERROR";
         public const string CHANNEL_NOT_FOUND = "CHANNEL_NOT_FOUND";
         public const string CHANNEL_SWITCH_FAILED = "CHANNEL_SWITCH_FAILED";
+
+        // 其他错误
+        public const string UNKNOWN_ERROR = "UNKNOWN_ERROR";
     }
 } 

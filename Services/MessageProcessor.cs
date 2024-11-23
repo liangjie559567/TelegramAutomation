@@ -8,119 +8,479 @@ using OpenQA.Selenium.Support.UI;
 using NLog;
 using TelegramAutomation.Models;
 using System.Threading;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace TelegramAutomation.Services
 {
     public class MessageProcessor
     {
         private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
-        private readonly DownloadManager _downloadManager;
-        private readonly DownloadConfiguration _config;
+        private readonly IWebDriver _driver;
 
-        public MessageProcessor(DownloadManager downloadManager, DownloadConfiguration config)
+        public MessageProcessor(IWebDriver driver)
         {
-            _downloadManager = downloadManager;
-            _config = config;
+            _driver = driver;
         }
 
-        public async Task ProcessMessage(IWebElement message, string messageFolder, 
-            IProgress<string> progress, CancellationToken cancellationToken)
+        private (string title, string text) ExtractTitleAndContent(IWebElement messageElement)
         {
             try
             {
-                Directory.CreateDirectory(messageFolder);
+                _logger.Debug("开始提取消息内容...");
+                string extractedTitle = string.Empty;
+                string extractedContent = string.Empty;
 
-                // 处理消息文本
-                var messageText = await ExtractMessageText(message);
-                if (!string.IsNullOrEmpty(messageText))
+                // 1. 尝试获取消息文本内容
+                var textElements = messageElement.FindElements(By.CssSelector(
+                    "div.message-content span.text-content, " +
+                    "div.message div[dir='auto'], " +
+                    "span.translatable-message"
+                ));
+
+                if (textElements.Any())
                 {
-                    await File.WriteAllTextAsync(
-                        Path.Combine(messageFolder, "message.txt"),
-                        messageText,
-                        cancellationToken
-                    );
+                    var allText = string.Join("\n", textElements.Select(e => e.Text.Trim()));
+                    var lines = allText.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                                     .Select(l => l.Trim())
+                                     .Where(l => !string.IsNullOrEmpty(l))
+                                     .Where(l => !l.StartsWith("http"))
+                                     .Where(l => !l.Contains("https://"))
+                                     .Where(l => !l.StartsWith("#"))
+                                     .ToList();
+
+                    if (lines.Any())
+                    {
+                        // 提取标题（第一行）
+                        extractedTitle = lines[0];
+                        
+                        // 提取内容（剩余行，排除链接和标签）
+                        if (lines.Count > 1)
+                        {
+                            var contentLines = lines.Skip(1)
+                                .Select(line => CleanContentLine(line))
+                                .Where(line => !string.IsNullOrWhiteSpace(line));
+                            
+                            extractedContent = string.Join("\n", contentLines);
+                        }
+                    }
                 }
 
-                // 处理媒体文件
-                var mediaElements = message.FindElements(By.CssSelector(".media-container"));
-                foreach (var media in mediaElements)
-                {
-                    if (cancellationToken.IsCancellationRequested) break;
-
-                    await ProcessMediaElement(media, messageFolder, progress, cancellationToken);
-                }
-
-                // 处理链接
-                var links = message.FindElements(By.CssSelector("a[href]"));
-                await ProcessLinks(links, messageFolder, cancellationToken);
-
-                progress.Report($"消息 {Path.GetFileName(messageFolder)} 处理完成");
+                _logger.Debug($"提取到的标题: {extractedTitle}");
+                _logger.Debug($"提取到的内容: {extractedContent}");
+                
+                return (extractedTitle, extractedContent);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"处理消息失败: {messageFolder}");
-                progress.Report($"处理消息失败: {ex.Message}");
+                _logger.Error(ex, "提取消息内容时出错");
+                return (string.Empty, string.Empty);
             }
         }
 
-        private async Task<string> ExtractMessageText(IWebElement message)
+        private string CleanContentLine(string line)
         {
             try
             {
-                var textElement = message.FindElement(By.CssSelector(".text-content"));
-                return await Task.FromResult(textElement.Text);
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
-        private async Task ProcessMediaElement(IWebElement media, string messageFolder,
-            IProgress<string> progress, CancellationToken cancellationToken)
-        {
-            try
-            {
-                var mediaUrl = media.GetAttribute("src") ?? 
-                              media.FindElement(By.CssSelector("img,video")).GetAttribute("src");
-
-                if (!string.IsNullOrEmpty(mediaUrl))
+                // 1. 移除所有 URL（包括 Fab.com）
+                var urlPatterns = new[]
                 {
-                    await _downloadManager.DownloadFileAsync(
-                        mediaUrl,
-                        messageFolder,
-                        progress,
-                        cancellationToken
-                    );
+                    @"(http|https):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&amp;:/~\+#]*[\w\-\@?^=%&amp;/~\+#])?",
+                    @"Fab\.com",
+                    @"www\.\w+\.\w+"
+                };
+                
+                foreach (var pattern in urlPatterns)
+                {
+                    line = Regex.Replace(line, pattern, string.Empty, RegexOptions.IgnoreCase);
+                }
+
+                // 2. 移除标签 (#xxx)
+                var hashtagPattern = @"#\w+";
+                line = Regex.Replace(line, hashtagPattern, string.Empty);
+
+                // 3. 移除版本号相关文本
+                var versionPatterns = new[]
+                {
+                    @"v\d+(\.\d+)*",  // 常规版本号 (v1.0.0)
+                    @"UE\d+(\.\d+)*", // UE版本号
+                    @"version\s+\d+(\.\d+)*",  // "version" 文本
+                    @"\[\s*v\d+(\.\d+)*\s*\]"  // 方括号中的版本号
+                };
+                
+                foreach (var pattern in versionPatterns)
+                {
+                    line = Regex.Replace(line, pattern, string.Empty);
+                }
+
+                // 4. 移除多余空格和特殊字符
+                line = Regex.Replace(line.Trim(), @"\s+", " ");  // 合并多个空格
+                line = Regex.Replace(line, @"[\[\]\(\)]", string.Empty);  // 移除括号
+                line = Regex.Replace(line, @"^\s*[-–—]\s*", string.Empty);  // 移除行首的破折号
+                
+                // 5. 移除常见的无用文本
+                var removeTexts = new[]
+                {
+                    "NEW",
+                    "OVERVIEW",
+                    "VIDEO",
+                    "also",
+                    "Tutorial",
+                    "Download"
+                };
+                
+                foreach (var text in removeTexts)
+                {
+                    line = Regex.Replace(line, $@"\b{text}\b", string.Empty, RegexOptions.IgnoreCase);
+                }
+
+                // 6. 清理结果
+                line = line.Trim();
+                line = Regex.Replace(line, @"\s+", " ");  // 再次合并空格
+                line = Regex.Replace(line, @"^[-–—]\s*", string.Empty);  // 再次清理行首
+                line = Regex.Replace(line, @"\s*[-–—]\s*$", string.Empty);  // 清理行尾
+
+                return line;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "清理内容行时出错");
+                return line;
+            }
+        }
+
+        public MessageContent ProcessMessage(IWebElement messageElement)
+        {
+            try
+            {
+                _logger.Debug("开始处理新消息...");
+                _logger.Debug($"消息元素 HTML: {messageElement.GetAttribute("outerHTML")}");
+                
+                var content = new MessageContent
+                {
+                    Id = Guid.NewGuid().ToString()
+                };
+
+                // 1. 尝试获取前一个相关消息的内容
+                var previousMessage = messageElement.FindElements(By.XPath("./preceding-sibling::div[@class='message'][1]"));
+                if (previousMessage.Any())
+                {
+                    var prevMessageText = previousMessage.First().FindElements(By.CssSelector("span.translatable-message"));
+                    if (prevMessageText.Any())
+                    {
+                        var (title, text) = ExtractTitleAndContent(previousMessage.First());
+                        content.Text = string.IsNullOrEmpty(text) ? title : $"{title}\n{text}";
+                        content.Links = ExtractLinks(previousMessage.First());
+                    }
+                }
+                else
+                {
+                    // 2. 从当前消息提取内容
+                    var (title, text) = ExtractTitleAndContent(messageElement);
+                    content.Text = string.IsNullOrEmpty(text) ? title : $"{title}\n{text}";
+                    content.Links = ExtractLinks(messageElement);
+                }
+
+                // 3. 提取文件
+                content.Files = ExtractFiles(messageElement);
+
+                // 4. 如果当前消息没有内容但有文件，尝试从文件名生成标题
+                if (string.IsNullOrWhiteSpace(content.Text) && content.Files.Any())
+                {
+                    var firstFile = content.Files.First();
+                    var fileName = firstFile.Name;
+                    var title = fileName.Split(new[] { "UE", "v", "_v", "." }, StringSplitOptions.RemoveEmptyEntries)[0]
+                                      .Replace("_", " ")
+                                      .Trim();
+                    content.Text = title;
+                }
+
+                // 5. 记录处理结果
+                var preview = new StringBuilder();
+                preview.AppendLine($"处理消息 ID: {content.Id}");
+                preview.AppendLine($"标题：{content.Text?.Split('\n').FirstOrDefault()}");
+                preview.AppendLine("内容：");
+                var contentLines = content.Text?.Split('\n').Skip(1).Where(l => !string.IsNullOrWhiteSpace(l));
+                if (contentLines?.Any() == true)
+                {
+                    preview.AppendLine(string.Join("\n", contentLines));
+                }
+                
+                if (content.Files.Any())
+                {
+                    preview.AppendLine("文件:");
+                    foreach (var file in content.Files)
+                    {
+                        preview.AppendLine($"{file.Name} ({file.Size})");
+                    }
+                }
+
+                if (content.Links.Any())
+                {
+                    preview.AppendLine("链接:");
+                    foreach (var link in content.Links)
+                    {
+                        preview.AppendLine(link);
+                    }
+                }
+                
+                _logger.Debug(preview.ToString());
+                return content;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "处理消息时出错");
+                return new MessageContent { Id = Guid.NewGuid().ToString() };
+            }
+        }
+
+        public bool ValidateMessageContent(MessageContent content)
+        {
+            try
+            {
+                // 检查是否有任何有效内容
+                bool hasContent = !string.IsNullOrWhiteSpace(content.Text) || 
+                                 content.Files.Any() || 
+                                 content.Links.Any();
+
+                if (!hasContent)
+                {
+                    _logger.Debug("消息没有任何有效内容");
+                    return false;
+                }
+
+                // 检查标题是否为文件名
+                var title = content.Text?.Split('\n').FirstOrDefault()?.Trim() ?? string.Empty;
+                if (!string.IsNullOrEmpty(title))
+                {
+                    var isJustFileName = content.Files.Any(f => 
+                        Path.GetFileNameWithoutExtension(f.Name).Equals(title, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (isJustFileName)
+                    {
+                        _logger.Debug("标题不能仅为文件名");
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "验证消息内容时出错");
+                return false;
+            }
+        }
+
+        private string FormatMessageContent(MessageContent content)
+        {
+            var sb = new StringBuilder();
+
+            // 1. 标题
+            var title = content.Text?.Split('\n').FirstOrDefault()?.Trim() ?? string.Empty;
+            sb.AppendLine($"标题: {title}");
+
+            // 2. 内容
+            sb.AppendLine("内容：");
+            var description = content.Text?.Split('\n')
+                .Skip(1)
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .Where(l => !l.StartsWith("http"))
+                .Where(l => !l.Contains("https://"))
+                .Where(l => !l.StartsWith("#"))
+                .ToList();
+
+            if (description?.Any() == true)
+            {
+                sb.AppendLine(string.Join("\n", description));
+            }
+
+            // 3. 链接
+            if (content.Links.Any())
+            {
+                sb.AppendLine("链接:");
+                foreach (var link in content.Links)
+                {
+                    sb.AppendLine(link);
+                }
+            }
+
+            // 4. 文件
+            if (content.Files.Any())
+            {
+                sb.AppendLine("文件:");
+                foreach (var file in content.Files)
+                {
+                    sb.AppendLine($"{file.Name} ({file.Size})");
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        private void LogMessageContent(MessageContent content)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"处理消息 ID: {content.Id}");
+            
+            // 分离标题和内容
+            var lines = content.Text?.Split('\n', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
+            var title = lines.FirstOrDefault() ?? string.Empty;
+            
+            sb.AppendLine($"标题：{title}");
+            sb.AppendLine("内容：");
+            
+            // 添加剩余内容
+            if (lines.Length > 1)
+            {
+                sb.AppendLine(string.Join("\n", lines.Skip(1)));
+            }
+
+            // 添加文件信息
+            if (content.Files.Any())
+            {
+                sb.AppendLine("文件:");
+                foreach (var file in content.Files)
+                {
+                    sb.AppendLine($"{file.Name} ({file.Size})");
+                }
+            }
+
+            // 添加链接信息
+            if (content.Links.Any())
+            {
+                sb.AppendLine("链接:");
+                foreach (var link in content.Links)
+                {
+                    sb.AppendLine(link);
+                }
+            }
+
+            _logger.Debug(sb.ToString());
+        }
+
+        public List<MessageContent.FileInfo> ExtractFiles(IWebElement messageElement)
+        {
+            var files = new List<MessageContent.FileInfo>();
+            try
+            {
+                // 1. 查找所有文件容器
+                var containers = messageElement.FindElements(By.CssSelector(
+                    ".document-container, " +
+                    ".media-container:not(.webpage-preview), " +
+                    ".media-photo-container"
+                ));
+
+                _logger.Debug($"找到 {containers.Count} 个文件容器");
+
+                foreach (var container in containers)
+                {
+                    _logger.Debug($"处理容器: {container.GetAttribute("outerHTML")}");
+
+                    // 处理文档类型
+                    if (container.GetAttribute("class").Contains("document-container"))
+                    {
+                        var nameElement = container.FindElement(By.CssSelector(".document-name"));
+                        var sizeElement = container.FindElement(By.CssSelector(".document-size .i18n"));
+                        var extElement = container.FindElement(By.CssSelector(".document"));
+                        
+                        var fileName = nameElement.Text.Trim();
+                        var fileSize = sizeElement.Text.Trim();
+                        var fileType = extElement.GetAttribute("class")
+                            .Split(' ')
+                            .FirstOrDefault(c => c.StartsWith("ext-"))
+                            ?.Replace("ext-", "")
+                            .ToUpper() ?? "UNKNOWN";
+
+                        files.Add(new MessageContent.FileInfo
+                        {
+                            Name = fileName,
+                            Size = fileSize,
+                            Type = fileType
+                        });
+                        _logger.Debug($"添加文档: {fileName} ({fileSize}) [{fileType}]");
+                    }
+                    // 处理图片类型
+                    else if (container.GetAttribute("class").Contains("media"))
+                    {
+                        var imgElement = container.FindElement(By.CssSelector("img"));
+                        var src = imgElement.GetAttribute("src");
+                        var fileSize = GetImageSize(imgElement);
+                        var fileName = $"image_{DateTime.Now.Ticks}.jpg";
+
+                        files.Add(new MessageContent.FileInfo
+                        {
+                            Name = fileName,
+                            Size = fileSize,
+                            Type = "IMAGE",
+                            Url = src
+                        });
+                        _logger.Debug($"添加图片: {fileName} ({fileSize})");
+                    }
+                }
+
+                _logger.Debug($"文件提取完成，共找到 {files.Count} 个文件");
+                return files;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "提取文件时出错");
+                return files;
+            }
+        }
+
+        private string GetImageSize(IWebElement imgElement)
+        {
+            try
+            {
+                var naturalWidth = ((IJavaScriptExecutor)_driver).ExecuteScript("return arguments[0].naturalWidth;", imgElement);
+                var naturalHeight = ((IJavaScriptExecutor)_driver).ExecuteScript("return arguments[0].naturalHeight;", imgElement);
+                
+                if (naturalWidth != null && naturalHeight != null)
+                {
+                    return $"{naturalWidth}x{naturalHeight}";
                 }
             }
             catch (Exception ex)
             {
-                _logger.Warn(ex, "处理媒体元素失败");
+                _logger.Error(ex, "获取图片尺寸失败");
             }
+            return "未知";
         }
 
-        private async Task ProcessLinks(IReadOnlyCollection<IWebElement> links, 
-            string messageFolder, CancellationToken cancellationToken)
+        public List<string> ExtractLinks(IWebElement messageElement)
         {
-            var linkList = new List<string>();
-            foreach (var link in links)
+            var links = new HashSet<string>();
+            try
             {
-                var href = link.GetAttribute("href");
-                if (!string.IsNullOrEmpty(href))
+                // 修改链接选择器
+                var linkElements = messageElement.FindElements(By.CssSelector(
+                    "a[href]:not([href^='tg://']):not([href*='hashtag']):not([href*='javascript'])"
+                ));
+
+                foreach (var linkElement in linkElements)
                 {
-                    linkList.Add(href);
+                    var href = linkElement.GetAttribute("href")?.Trim();
+                    if (!string.IsNullOrEmpty(href) && 
+                        !href.Contains("hashtag") && 
+                        !href.Contains("javascript:") &&
+                        Uri.TryCreate(href, UriKind.Absolute, out _))
+                    {
+                        links.Add(href);
+                    }
+                }
+
+                _logger.Debug($"提取到的接数量: {links.Count}");
+                foreach (var link in links)
+                {
+                    _logger.Debug($"找到链接: {link}");
                 }
             }
-
-            if (linkList.Any())
+            catch (Exception ex)
             {
-                await File.WriteAllLinesAsync(
-                    Path.Combine(messageFolder, "links.txt"),
-                    linkList,
-                    cancellationToken
-                );
+                _logger.Error(ex, "提取链接时出错");
             }
+            return links.ToList();
         }
     }
 } 

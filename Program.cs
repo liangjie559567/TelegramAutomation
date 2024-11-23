@@ -77,6 +77,63 @@ namespace TelegramAutomation
                     await chromeService.InitializeAsync();
                     _logger.Info("浏览器初始化成功");
 
+                    while (true)
+                    {
+                        try 
+                        {
+                            // 清空控制台缓冲区
+                            while (Console.KeyAvailable)
+                            {
+                                Console.ReadKey(true);
+                            }
+                            
+                            // 使用不同颜色突出显示输入提示
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine("\n请输入要访问的频道名称 (无需添加@符号，输入 'exit' 退出): ");
+                            Console.ResetColor();
+                            
+                            // 确保输入流正常
+                            var channelName = Console.ReadLine()?.Trim();
+                            // 移除用户可能输入的 @ 符号
+                            channelName = channelName?.TrimStart('@');
+                            
+                            if (string.IsNullOrEmpty(channelName) || channelName.ToLower() == "exit")
+                            {
+                                break;
+                            }
+
+                            // 开始下载频道内容
+                            _logger.Info($"开始下载频道 {channelName} 的内容...");
+                            await chromeService.NavigateToChannel(channelName);
+                            await chromeService.StartDownloadingAsync(channelName);
+                            _logger.Info("下载完成");
+
+                            Console.WriteLine("是否继续下载其他频道? (y/n):");
+                            var continueDownload = Console.ReadLine()?.ToLower();
+                            if (continueDownload != "y")
+                            {
+                                break;
+                            }
+                        }
+                        catch (ChromeException ex) when (ex.ErrorCode == ErrorCodes.CHANNEL_NOT_FOUND)
+                        {
+                            _logger.Warn($"未找到频道，请检查频道名称是否正确");
+                            Console.WriteLine($"未找到频道，请检查频道名称是否正确");
+                            // 继续循环，让用户重新输入
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(ex, "下载过程中出错");
+                            Console.WriteLine($"错误: {ex.Message}");
+                            Console.WriteLine("是否重试? (y/n):");
+                            var retry = Console.ReadLine()?.ToLower();
+                            if (retry != "y")
+                            {
+                                break;
+                            }
+                        }
+                    }
+
                     // 等待用户操作
                     _logger.Info("程序运行中，按 Ctrl+C 退出...");
                     Console.WriteLine("程序运行中，按 Ctrl+C 退出...");
