@@ -1,0 +1,176 @@
+<Window x:Class="TelegramAutomation.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TelegramAutomation.Views"
+        xmlns:vm="clr-namespace:TelegramAutomation.ViewModels"
+        mc:Ignorable="d"
+        Title="Telegram 自动化下载工具" Height="650" Width="1000"
+        WindowStartupLocation="CenterScreen">
+    
+    <Window.Resources>
+        <ResourceDictionary>
+            <Style x:Key="MainButtonStyle" TargetType="Button">
+                <Setter Property="Margin" Value="5"/>
+                <Setter Property="Padding" Value="15,8"/>
+                <Setter Property="Background" Value="#2196F3"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4">
+                                <ContentPresenter HorizontalAlignment="Center" 
+                                                VerticalAlignment="Center"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="#1976D2"/>
+                    </Trigger>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Background" Value="#BDBDBD"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部工具栏 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#F5F5F5" Padding="10">
+            <Button Content="登录" Style="{StaticResource MainButtonStyle}"
+                    Command="{Binding LoginCommand}"/>
+            <Button Content="设置" Style="{StaticResource MainButtonStyle}" Margin="5,0"
+                    Command="{Binding OpenSettingsCommand}"/>
+        </StackPanel>
+
+        <!-- 主要内容区域 -->
+        <Grid Grid.Row="1" Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧面板 -->
+            <Border Grid.Column="0" Background="White" BorderBrush="#EEEEEE" 
+                    BorderThickness="1" CornerRadius="4" Margin="0,0,5,0">
+                <DockPanel>
+                    <TextBox DockPanel.Dock="Top" Margin="5"
+                             Text="{Binding ChannelName, UpdateSourceTrigger=PropertyChanged}"
+                             PlaceholderText="输入频道名称..."
+                             Height="30"/>
+                    <Button DockPanel.Dock="Top" Content="搜索频道" 
+                            Style="{StaticResource MainButtonStyle}"
+                            Command="{Binding SearchChannelCommand}"/>
+                    <ListBox ItemsSource="{Binding ChannelList}"
+                             SelectedItem="{Binding SelectedChannel}"
+                             Margin="5">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" Padding="5"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- 右侧内容区域 -->
+            <Border Grid.Column="1" Background="White" BorderBrush="#EEEEEE" 
+                    BorderThickness="1" CornerRadius="4" Margin="5,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 下载选项 -->
+                    <StackPanel Grid.Row="0" Margin="10">
+                        <TextBlock Text="下载选项" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="消息数量:" 
+                                     VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" 
+                                    Text="{Binding MessageCount}" Width="100" 
+                                    HorizontalAlignment="Left"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="保存路径:" 
+                                     VerticalAlignment="Center" Margin="0,5,10,0"/>
+                            <DockPanel Grid.Row="1" Grid.Column="1" LastChildFill="True">
+                                <Button DockPanel.Dock="Right" Content="浏览" 
+                                        Style="{StaticResource MainButtonStyle}"
+                                        Command="{Binding BrowseFolderCommand}" 
+                                        Margin="5,0,0,0"/>
+                                <TextBox Text="{Binding SavePath}" IsReadOnly="True"/>
+                            </DockPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- 下载列表 -->
+                    <ListView Grid.Row="1" Margin="10" 
+                             ItemsSource="{Binding DownloadItems}">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="文件名" Width="200"
+                                              DisplayMemberBinding="{Binding FileName}"/>
+                                <GridViewColumn Header="大小" Width="100"
+                                              DisplayMemberBinding="{Binding FileSize}"/>
+                                <GridViewColumn Header="进度" Width="200">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <ProgressBar Value="{Binding Progress}" 
+                                                       Width="180" Height="15"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="状态" Width="100"
+                                              DisplayMemberBinding="{Binding Status}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+
+                    <!-- 操作按钮 -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" 
+                              HorizontalAlignment="Right" Margin="10">
+                        <Button Content="开始下载" Style="{StaticResource MainButtonStyle}"
+                                Command="{Binding StartDownloadCommand}"/>
+                        <Button Content="停止下载" Style="{StaticResource MainButtonStyle}"
+                                Command="{Binding StopDownloadCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="2" Background="#F5F5F5">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock Text="{Binding Version}"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window> 

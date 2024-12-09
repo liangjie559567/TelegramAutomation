@@ -310,25 +310,18 @@ namespace TelegramAutomation.Services
                 // 创建下载配置
                 var downloadConfig = new DownloadConfiguration
                 {
-                    MaxConcurrentDownloads = 3,
+                    MaxConcurrentDownloads = _settings.DownloadConfig.MaxConcurrentDownloads,
                     SaveMessageText = true,
                     SaveLinks = true,
-                    SupportedFileExtensions = new[]
-                    {
-                        ".zip", ".rar", ".7z", ".tar", ".gz",
-                        ".mp4", ".avi", ".mkv", ".mov",
-                        ".jpg", ".jpeg", ".png", ".gif",
-                        ".pdf", ".doc", ".docx", ".xls", ".xlsx"
-                    }
+                    SupportedFileExtensions = _settings.DownloadConfig.SupportedFileExtensions
                 };
 
-                var progress = new Progress<string>(message => _logger.Info(message));
                 var downloadService = new DownloadService(_driver, savePath, downloadConfig);
                 _logger.Info($"开始下载频道内容到: {savePath}");
                 
                 await downloadService.ProcessChannelMessages(
                     channelName,
-                    progress,
+                    new Progress<string>(message => _logger.Info(message)),
                     CancellationToken.None
                 );
                 
@@ -360,5 +353,7 @@ namespace TelegramAutomation.Services
                 _driver.Dispose();
             }
         }
+
+        public IWebDriver? Driver => _driver;
     }
 } 

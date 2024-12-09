@@ -26,6 +26,8 @@ namespace TelegramAutomation.Services
         private const int MaxRetries = 3;
         private const int RetryDelayMs = 1000;
 
+        public event EventHandler<DownloadProgressEventArgs>? DownloadProgressChanged;
+
         public FileDownloadService(IWebDriver driver, string baseSavePath)
         {
             _driver = driver;
@@ -36,7 +38,13 @@ namespace TelegramAutomation.Services
             Directory.CreateDirectory(_baseSavePath);
         }
 
-        public async Task<bool> ProcessMessageGroupDownload(
+        private void ReportProgress(string fileName, string fileSize, double progress, string status, string message)
+        {
+            var args = new DownloadProgressEventArgs(fileName, fileSize, progress, status, message);
+            DownloadProgressChanged?.Invoke(this, args);
+        }
+
+        public async Task ProcessMessageGroupDownload(
             List<IWebElement> messageGroup,
             MessageContent messageContent,
             IProgress<string> progress,
@@ -46,11 +54,12 @@ namespace TelegramAutomation.Services
             {
                 if (messageGroup == null || !messageGroup.Any() || messageContent == null)
                 {
-                    return false;
+                    return;
                 }
 
                 // 1. 创建消息组文件夹
-                var folderName = GetSafeFileName(messageContent.Text?.Split('\n').FirstOrDefault() ?? DateTime.Now.Ticks.ToString());
+                var folderName = GetSafeFileName(messageContent.Text?.Split('\n').FirstOrDefault() ?? 
+                    DateTime.Now.Ticks.ToString());
                 var groupFolder = Path.Combine(_baseSavePath, folderName);
                 _logger.Debug($"[调试] 主文件夹路径: {groupFolder}");
                 
@@ -65,38 +74,91 @@ namespace TelegramAutomation.Services
                 await SaveTextContent(messageContent, groupFolder);
 
                 // 3. 下载所有附件
-                var allDownloadsSuccessful = true;
-                foreach (var message in messageGroup)
+                if (messageContent.Files.Any())
                 {
-                    if (cancellationToken.IsCancellationRequested)
+                    foreach (var file in messageContent.Files)
                     {
-                        return false;
-                    }
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            ReportProgress(file.Name, file.Size, 0, "已取消", "下载已取消");
+                            break;
+                        }
 
-                    // 直接使用主文件夹路径
-                    var downloadSuccess = await DownloadMessageAttachments(message, groupFolder, progress);
-                    if (!downloadSuccess)
-                    {
-                        allDownloadsSuccessful = false;
-                        // 移除 break，继续处理其他消息的附件
+                        try
+                        {
+                            ReportProgress(file.Name, file.Size, 0, "准备中", "准备下载文件...");
+                            
+                            // 查找文件元素
+                            var fileElement = FindFileElement(messageGroup, file.Name);
+                            if (fileElement == null)
+                            {
+                                ReportProgress(file.Name, file.Size, 0, "失败", "未找到文件元素");
+                                continue;
+                            }
+
+                            // 点击下载按钮
+                            var downloadButton = fileElement.FindElement(By.CssSelector(".download"));
+                            if (downloadButton != null && downloadButton.Displayed)
+                            {
+                                downloadButton.Click();
+                                ReportProgress(file.Name, file.Size, 0, "下载中", "开始下载...");
+                                
+                                // 等待文件下载完成
+                                var downloadPath = Path.Combine(
+                                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                                    "TelegramDownloads"
+                                );
+                                
+                                var success = await WaitForDownload(
+                                    downloadPath, 
+                                    file.Name,
+                                    progress => ReportProgress(file.Name, file.Size, progress, "下载中", 
+                                        $"已下载 {progress:F1}%"),
+                                    cancellationToken
+                                );
+
+                                if (success)
+                                {
+                                    // 移动文件到消息组文件夹
+                                    var sourceFile = Directory.GetFiles(downloadPath, $"{file.Name}*")
+                                        .FirstOrDefault();
+                                    
+                                    if (sourceFile != null)
+                                    {
+                                        var destFile = Path.Combine(groupFolder, Path.GetFileName(sourceFile));
+                                        File.Move(sourceFile, destFile, true);
+                                        ReportProgress(file.Name, file.Size, 100, "完成", "下载完成");
+                                    }
+                                    else
+                                    {
+                                        ReportProgress(file.Name, file.Size, 0, "失败", "文件未找到");
+                                    }
+                                }
+                                else
+                                {
+                                    ReportProgress(file.Name, file.Size, 0, "失败", "下载超时或失败");
+                                }
+                            }
+                            else
+                            {
+                                ReportProgress(file.Name, file.Size, 0, "失败", "下载按钮未找到");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(ex, $"下载文件 {file.Name} 时出错");
+                            ReportProgress(file.Name, file.Size, 0, "失败", $"错误: {ex.Message}");
+                        }
+
+                        // 等待一段时间再下载下一个文件
+                        await Task.Delay(1000, cancellationToken);
                     }
                 }
-
-                if (allDownloadsSuccessful)
-                {
-                    progress.Report($"消息组 '{folderName}' 处理完成");
-                }
-                else
-                {
-                    progress.Report($"消息组 '{folderName}' 部分文件处理失败");
-                }
-                return allDownloadsSuccessful;
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "处理消息组下载时出错");
-                progress.Report($"下载出错: {ex.Message}");
-                return false;
+                throw;
             }
         }
 
@@ -298,7 +360,7 @@ namespace TelegramAutomation.Services
         {
             try
             {
-                // 尝试获取文件名
+                // 尝试获取��件名
                 var nameElement = container.FindElements(By.CssSelector(".document-name")).FirstOrDefault();
                 if (nameElement != null)
                 {
@@ -683,6 +745,125 @@ namespace TelegramAutomation.Services
             var invalidChars = Path.GetInvalidFileNameChars();
             var safeName = new string(fileName.Select(c => invalidChars.Contains(c) ? '_' : c).ToArray());
             return safeName.Length > 100 ? safeName.Substring(0, 100) : safeName;
+        }
+
+        private IWebElement? FindFileElement(List<IWebElement> messageGroup, string fileName)
+        {
+            foreach (var message in messageGroup)
+            {
+                try
+                {
+                    var fileElements = message.FindElements(By.CssSelector(
+                        ".document-container, .media-container, .media-photo-container"));
+
+                    foreach (var element in fileElements)
+                    {
+                        try
+                        {
+                            var nameElement = element.FindElement(By.CssSelector(".document-name"));
+                            if (nameElement.Text.Trim() == fileName)
+                            {
+                                return element;
+                            }
+                        }
+                        catch (NoSuchElementException)
+                        {
+                            continue;
+                        }
+                    }
+                }
+                catch (StaleElementReferenceException)
+                {
+                    continue;
+                }
+            }
+            return null;
+        }
+
+        private async Task<bool> WaitForDownload(string downloadPath, string fileName, 
+            Action<double> progressCallback, CancellationToken cancellationToken)
+        {
+            var startTime = DateTime.Now;
+            var timeout = TimeSpan.FromMinutes(30); // 30分钟超时
+            var lastProgress = 0.0;
+
+            while (DateTime.Now - startTime < timeout && !cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    // 检查下载中的文件
+                    var crdownloadFile = Directory.GetFiles(downloadPath, "*.crdownload")
+                        .FirstOrDefault(f => Path.GetFileName(f).Contains(fileName));
+
+                    if (crdownloadFile != null)
+                    {
+                        var fileInfo = new FileInfo(crdownloadFile);
+                        if (fileInfo.Length > 0)
+                        {
+                            // 获取下载进度
+                            var progress = CalculateDownloadProgress(crdownloadFile);
+                            if (progress > lastProgress)
+                            {
+                                lastProgress = progress;
+                                progressCallback(progress);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // 检查是否下载完成
+                        var completedFile = Directory.GetFiles(downloadPath, fileName + "*")
+                            .FirstOrDefault(f => !f.EndsWith(".crdownload"));
+
+                        if (completedFile != null)
+                        {
+                            progressCallback(100);
+                            return true;
+                        }
+                    }
+
+                    await Task.Delay(1000, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "检查下载进度时出错");
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        private double CalculateDownloadProgress(string crdownloadFile)
+        {
+            try
+            {
+                var fileInfo = new FileInfo(crdownloadFile);
+                var downloadedSize = fileInfo.Length;
+                
+                // 从文件名中提取总大小信息
+                var fileName = Path.GetFileName(crdownloadFile);
+                var sizeMatch = System.Text.RegularExpressions.Regex.Match(fileName, @"_(\d+)_bytes");
+                if (sizeMatch.Success && long.TryParse(sizeMatch.Groups[1].Value, out long totalSize))
+                {
+                    if (totalSize > 0)
+                    {
+                        return (downloadedSize * 100.0) / totalSize;
+                    }
+                }
+                
+                // 如果无法获取总大小，返回一个估计的进度
+                return Math.Min((downloadedSize * 100.0) / (1024 * 1024), 99); // 限制最大99%
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "计算下载进度时出错");
+                return 0;
+            }
         }
     }
 }
