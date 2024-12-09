@@ -60,7 +60,7 @@ namespace TelegramAutomation
                 _logger.Info("=== 程序启动 ===");
                 _logger.Info($"日志目录: {logPath}");
                 _logger.Info($"当前时间: {DateTime.Now}");
-                _logger.Info($"操作系统: {Environment.OSVersion}");
+                _logger.Info($"操��系统: {Environment.OSVersion}");
                 _logger.Info($"程序目录: {AppDomain.CurrentDomain.BaseDirectory}");
 
                 // 加载配置
@@ -89,7 +89,7 @@ namespace TelegramAutomation
                             
                             // 使用不同颜色突出显示输入提示
                             Console.ForegroundColor = ConsoleColor.Green;
-                            Console.WriteLine("\n请输入要访问的频道名称 (无需添加@符号，输入 'exit' 退出): ");
+                            Console.WriteLine("\n请输入要访问的频道名称 (无需加@符号，输入 'exit' 退出): ");
                             Console.ResetColor();
                             
                             // 确保输入流正常
@@ -104,9 +104,17 @@ namespace TelegramAutomation
 
                             // 开始下载频道内容
                             _logger.Info($"开始下载频道 {channelName} 的内容...");
+
+                            var progress = new Progress<string>(message => {
+                                Console.WriteLine(message);
+                                _logger.Info(message);
+                            });
+
                             await chromeService.NavigateToChannel(channelName);
                             await chromeService.StartDownloadingAsync(channelName);
+                            
                             _logger.Info("下载完成");
+                            Console.WriteLine("下载完成");
 
                             Console.WriteLine("是否继续下载其他频道? (y/n):");
                             var continueDownload = Console.ReadLine()?.ToLower();

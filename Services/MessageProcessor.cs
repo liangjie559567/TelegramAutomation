@@ -402,5 +402,138 @@ namespace TelegramAutomation.Services
             }
             return links.ToList();
         }
+
+        public MessageContent? ProcessMessageGroup(List<IWebElement> messageGroup)
+        {
+            if (messageGroup == null || !messageGroup.Any())
+                return null;
+
+            var content = new MessageContent();
+            var mainMessage = messageGroup.First();
+
+            try
+            {
+                _logger.Debug("开始提取消息内容...");
+                
+                // 提取标题和内容
+                var textElements = mainMessage.FindElements(By.CssSelector(
+                    "span.translatable-message, div.message-content span.text-content"
+                ));
+
+                if (textElements != null && textElements.Any())
+                {
+                    var fullText = string.Join("\n", textElements.Select(e => e.Text.Trim()));
+                    var lines = fullText.Split('\n')
+                        .Where(l => !string.IsNullOrWhiteSpace(l))
+                        .ToList();
+
+                    if (lines.Any())
+                    {
+                        content.Title = lines[0].Trim();
+                        _logger.Debug($"提取到的标题: {content.Title}");
+
+                        if (lines.Count > 1)
+                        {
+                            content.Text = string.Join("\n", lines);
+                            _logger.Debug($"提取到的内容: {content.Text}");
+                        }
+                    }
+                }
+
+                // 处理所有消息中的文件
+                foreach (var message in messageGroup)
+                {
+                    try
+                    {
+                        var fileContainers = message.FindElements(By.CssSelector(
+                            ".document-container, .media-container, .media-photo-container"
+                        ));
+                        
+                        _logger.Debug($"找到 {fileContainers?.Count ?? 0} 个文件容器");
+                        
+                        if (fileContainers != null && fileContainers.Any())
+                        {
+                            foreach (var container in fileContainers)
+                            {
+                                _logger.Debug($"处理容器: {container.GetAttribute("outerHTML")}");
+                                
+                                var file = new MessageContent.FileInfo();
+                                
+                                // 获取文件名
+                                try
+                                {
+                                    var nameElement = container.FindElement(By.CssSelector(".document-name"));
+                                    file.Name = nameElement.Text.Trim();
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.Debug($"提取文件名时出错: {ex.Message}");
+                                    continue;
+                                }
+
+                                // 获取文件大小
+                                try
+                                {
+                                    var sizeElement = container.FindElement(By.CssSelector(".document-size"));
+                                    file.Size = sizeElement.Text.Split('·')[0].Trim();
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.Debug($"提取文件大小时出错: {ex.Message}");
+                                }
+
+                                // 获取文件类型
+                                try
+                                {
+                                    var typeElement = container.FindElement(By.CssSelector(".document-ico-text"));
+                                    file.Type = typeElement.Text.Trim().ToUpper();
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.Debug($"提取文件类型时出错: {ex.Message}");
+                                    // 尝试从文件名获取类型
+                                    file.Type = Path.GetExtension(file.Name)?.TrimStart('.')?.ToUpper() ?? "未知";
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(file.Name))
+                                {
+                                    _logger.Debug($"添加文档: {file.Name} ({file.Size}) [{file.Type}]");
+                                    content.Files.Add(file);
+                                }
+                            }
+                        }
+                        
+                        _logger.Debug($"文件提取完成，共找到 {content.Files.Count} 个文件");
+
+                        // 提取链接
+                        var links = message.FindElements(By.CssSelector("a.anchor-url"))
+                            .Select(a => a.GetAttribute("href"))
+                            .Where(href => !string.IsNullOrWhiteSpace(href))
+                            .ToList();
+
+                        _logger.Debug($"提取到的链接数量: {links.Count}");
+                        foreach (var link in links)
+                        {
+                            _logger.Debug($"找到链接: {link}");
+                            if (!content.Links.Contains(link))
+                            {
+                                content.Links.Add(link);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "处理消息中的文件和链接时出错");
+                    }
+                }
+
+                return content;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "处理消息组时出错");
+                return null;
+            }
+        }
     }
 } 

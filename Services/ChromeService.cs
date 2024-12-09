@@ -132,18 +132,20 @@ namespace TelegramAutomation.Services
             Directory.CreateDirectory(userDataDir);
             options.AddArgument($"--user-data-dir={userDataDir}");
 
-            // 设置下载路径
+            // 设置下载路径为指定目录
             var downloadPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                "Downloads"  // 使用系统默认下载路径
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "TelegramDownloads"
             );
+            Directory.CreateDirectory(downloadPath);
 
             var prefs = new Dictionary<string, object>
             {
                 { "download.default_directory", downloadPath },
                 { "download.prompt_for_download", false },
                 { "download.directory_upgrade", true },
-                { "safebrowsing.enabled", true }
+                { "safebrowsing.enabled", true },
+                { "profile.default_content_settings.popups", 0 }
             };
             options.AddUserProfilePreference("download", prefs);
 
