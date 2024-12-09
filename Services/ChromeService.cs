@@ -319,10 +319,16 @@ namespace TelegramAutomation.Services
                 var downloadService = new DownloadService(_driver, savePath, downloadConfig);
                 _logger.Info($"开始下载频道内容到: {savePath}");
                 
+                var progress = new Progress<string>(message => _logger.Info(message));
+                var downloadProgress = new Progress<(string FileName, string FileSize, double Progress, string Status, string Message)>(
+                    update => _logger.Info($"下载进度 - {update.FileName}: {update.Progress}% ({update.Status})")
+                );
+
                 await downloadService.ProcessChannelMessages(
                     channelName,
-                    new Progress<string>(message => _logger.Info(message)),
-                    CancellationToken.None
+                    progress,
+                    CancellationToken.None,
+                    downloadProgress
                 );
                 
                 _logger.Info("频道内容下载完成");

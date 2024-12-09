@@ -126,7 +126,8 @@ namespace TelegramAutomation.Services
         public async Task ProcessChannelMessages(
             string channelName,
             IProgress<string> progress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            IProgress<(string FileName, string FileSize, double Progress, string Status, string Message)> downloadProgress)
         {
             try
             {
@@ -162,48 +163,69 @@ namespace TelegramAutomation.Services
                         // 等待所有文件下载完成
                         if (message.Files.Any())
                         {
-                            _logger.Info($"开始下载消息组 '{folderName}' 的文件");
                             foreach (var file in message.Files)
                             {
-                                progress.Report($"正在下载: {file.Name}");
-                                // 等待文件下载完成
-                                var downloadPath = Path.Combine(groupFolder, file.Name);
-                                var timeout = TimeSpan.FromMinutes(5);
-                                var startTime = DateTime.Now;
+                                try
+                                {
+                                    downloadProgress.Report((
+                                        file.Name,
+                                        file.Size,
+                                        0,
+                                        "准备中",
+                                        $"准备下载文件: {file.Name}"
+                                    ));
 
-                                while (!File.Exists(downloadPath) && DateTime.Now - startTime < timeout)
-                                {
-                                    await Task.Delay(1000, cancellationToken);
-                                }
+                                    var success = await _fileDownloadService.ProcessMessageGroupDownload(
+                                        new List<IWebElement>(), // TODO: 传入正确的消息组
+                                        message,
+                                        new Progress<string>(msg => progress.Report(msg)),
+                                        cancellationToken
+                                    );
 
-                                if (File.Exists(downloadPath))
-                                {
-                                    _logger.Info($"文件下载完成: {file.Name}");
-                                    progress.Report($"下载完成: {file.Name}");
+                                    if (success)
+                                    {
+                                        downloadProgress.Report((
+                                            file.Name,
+                                            file.Size,
+                                            100,
+                                            "完成",
+                                            $"文件下载完成: {file.Name}"
+                                        ));
+                                    }
+                                    else
+                                    {
+                                        downloadProgress.Report((
+                                            file.Name,
+                                            file.Size,
+                                            0,
+                                            "失败",
+                                            $"文件下载失败: {file.Name}"
+                                        ));
+                                    }
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    _logger.Error($"文件下载超时: {file.Name}");
-                                    progress.Report($"下载失败: {file.Name}");
+                                    _logger.Error(ex, $"下载文件 {file.Name} 时出错");
+                                    downloadProgress.Report((
+                                        file.Name,
+                                        file.Size,
+                                        0,
+                                        "错误",
+                                        $"下载出错: {ex.Message}"
+                                    ));
                                 }
                             }
                         }
 
                         processedCount++;
-                        progress.Report($"已处理消息组数量: {processedCount}");
-                        _logger.Info($"消息组 '{folderName}' 处理完成");
+                        progress.Report($"已处理 {processedCount}/{messages.Count} 条消息");
                     }
                     catch (Exception ex)
                     {
-                        _logger.Error(ex, $"处理消息组时出错");
-                        progress.Report($"处理消息组时出错: {ex.Message}");
+                        _logger.Error(ex, "处理消息时出错");
+                        progress.Report($"处理消息时出错: {ex.Message}");
                     }
-
-                    // 添加延迟，避免过快处理
-                    await Task.Delay(1000, cancellationToken);
                 }
-
-                _logger.Info($"已处理消息组数量: {processedCount}");
             }
             catch (Exception ex)
             {
@@ -252,27 +274,18 @@ namespace TelegramAutomation.Services
                         // 3. 展开所有折叠的消息
                         await ExpandAllMessages();
 
-                        // 4. 获取当前页面所有消息
-                        var visibleElements = wait.Until(d => {
-                            try {
-                                var elements = d.FindElements(By.CssSelector(".message"));
-                                return elements.Count > 0 ? elements : null;
-                            }
-                            catch {
-                                return null;
-                            }
-                        });
-
-                        if (visibleElements == null)
+                        // 4. 获取当前可见的消息
+                        var visibleMessages = _driver.FindElements(By.CssSelector(".bubbles .message"));
+                        if (!visibleMessages.Any())
                         {
-                            _logger.Debug("未找到可见消息");
-                            if (++retryCount >= maxRetries) break;
+                            if (++retryCount >= maxRetries)
+                            {
+                                _logger.Debug("达到最大重试次数");
+                                break;
+                            }
+                            await Task.Delay(1000);
                             continue;
                         }
-
-                        var visibleMessages = visibleElements.ToList();
-                        _logger.Debug($"找到 {visibleMessages.Count} 条可见消息");
-                        var processedAnyMessage = false;
 
                         // 5. 处理每条消息
                         for (int i = visibleMessages.Count - 1; i >= 0 && messages.Count < maxMessages; i--)
@@ -408,37 +421,19 @@ namespace TelegramAutomation.Services
                                     {
                                         messages.Add(content);
                                         MarkAsProcessed(tempId); // 标记主消息为已处理
-                                        progress.Report($"已加载消息组数量: {messages.Count}");
-                                        _logger.Info($"已加载消息组数量: {messages.Count}");
-                                        processedAnyMessage = true;
                                     }
                                 }
                             }
                             catch (Exception ex)
                             {
-                                _logger.Error(ex, "处理单条消息时出错");
-                                if (ex is StaleElementReferenceException)
+                                _logger.Error(ex, "处理消息时出错");
+                                if (++retryCount >= maxRetries)
                                 {
-                                    // 如果元素过期，继续处理下一条
-                                    continue;
+                                    _logger.Debug("达到最大重试次数");
+                                    break;
                                 }
+                                await Task.Delay(1000);
                             }
-                        }
-
-                        if (messages.Count >= maxMessages) break;
-
-                        // 如果这一页没有处理到任何新消息，增加重试计数
-                        if (!processedAnyMessage)
-                        {
-                            if (++retryCount >= maxRetries)
-                            {
-                                _logger.Debug("连续多次未处理到新消息，���能已到达顶部");
-                                break;
-                            }
-                        }
-                        else
-                        {
-                            retryCount = 0; // 重置重试计数
                         }
 
                         // 6. 向上滚动并刷新页面

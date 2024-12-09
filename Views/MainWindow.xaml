@@ -25,7 +25,8 @@
                                     BorderThickness="{TemplateBinding BorderThickness}"
                                     CornerRadius="4">
                                 <ContentPresenter HorizontalAlignment="Center" 
-                                                VerticalAlignment="Center"/>
+                                                VerticalAlignment="Center"
+                                                Margin="{TemplateBinding Padding}"/>
                             </Border>
                         </ControlTemplate>
                     </Setter.Value>
@@ -50,11 +51,11 @@
         </Grid.RowDefinitions>
 
         <!-- 顶部工具栏 -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#F5F5F5" Padding="10">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#F5F5F5">
             <Button Content="登录" Style="{StaticResource MainButtonStyle}"
-                    Command="{Binding LoginCommand}"/>
-            <Button Content="设置" Style="{StaticResource MainButtonStyle}" Margin="5,0"
-                    Command="{Binding OpenSettingsCommand}"/>
+                    Command="{Binding LoginCommand}" Margin="10,5"/>
+            <Button Content="设置" Style="{StaticResource MainButtonStyle}"
+                    Command="{Binding OpenSettingsCommand}" Margin="5"/>
         </StackPanel>
 
         <!-- 主要内容区域 -->
@@ -70,7 +71,6 @@
                 <DockPanel>
                     <TextBox DockPanel.Dock="Top" Margin="5"
                              Text="{Binding ChannelName, UpdateSourceTrigger=PropertyChanged}"
-                             PlaceholderText="输入频道名称..."
                              Height="30"/>
                     <Button DockPanel.Dock="Top" Content="搜索频道" 
                             Style="{StaticResource MainButtonStyle}"
